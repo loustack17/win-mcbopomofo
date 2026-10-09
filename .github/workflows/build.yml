@@ -33,6 +33,7 @@ jobs:
           OpenCppCoverage.exe --sources src --export_type cobertura:coverage.xml --cover_children -- ctest.exe --test-dir build -C Debug --output-on-failure
 
       - name: Upload Coverage to Codecov
+        if: github.event_name != 'workflow_dispatch'
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
