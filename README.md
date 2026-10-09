@@ -2,13 +2,15 @@
 
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white) ![CMake](https://img.shields.io/badge/CMake-%23008FBA.svg?style=for-the-badge&logo=cmake&logoColor=white) ![Visual Studio](https://img.shields.io/badge/Visual%20Studio-5C2D91.svg?style=for-the-badge&logo=visual-studio&logoColor=white) ![Wix](https://img.shields.io/badge/wix-000?style=for-the-badge&logo=wix&logoColor=white) ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) 
 
-[![Build and Test](https://github.com/openvanilla/win-mcbopomofo/actions/workflows/build.yml/badge.svg)](https://github.com/openvanilla/win-mcbopomofo/actions/workflows/build.yml)
+[![Fork Build and Release](https://github.com/loustack17/win-mcbopomofo/actions/workflows/fork-ci.yml/badge.svg?branch=master)](https://github.com/loustack17/win-mcbopomofo/actions/workflows/fork-ci.yml)
 
 Windows port of McBopomofo built on TSF.
 
-‼️ 請注意：本專案目前—不發行可安裝版本、不收外部 PR、不收 issue、沒有使用手冊、不處理任何問題回報、功能建議、社群回饋。僅提供專案原始程式碼。
+此 fork 以 `master` 為獨立主幹，包含本 fork 的輸入相容性修正與版本化安裝檔。`main` 保留 upstream 參照；本 fork 的修正不提交 upstream PR。
 
-‼️ 如有需要，請自行按照下方說明編譯安裝，您也可以考慮在 GitHub 上 fork 本專案之後，讓 GitHub Action 編譯。編譯完成會產生沒有簽名的安裝程式，自行安裝。
+推送至 `master` 或提出以 `master` 為目標的 PR，會執行 [Fork Build and Release](https://github.com/loustack17/win-mcbopomofo/actions/workflows/fork-ci.yml)，產生版本化 MSI artifact。在 Actions 手動執行時選擇 `master` 並勾選 `publish_release`，可在驗證完成後發布 [GitHub Release](https://github.com/loustack17/win-mcbopomofo/releases)。beta／rc 會標示為 prerelease；安裝檔沒有數位簽章。
+
+上游專案為 [openvanilla/win-mcbopomofo](https://github.com/openvanilla/win-mcbopomofo)，其不接受外部 PR 的政策適用於上游。
 
 <!-- TOC -->
 

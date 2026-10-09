@@ -49,8 +49,16 @@ flag. UpgradeCode and component GUIDs remain stable.
 5. Verify MSI ProductVersion and an upgrade from the previous installed release.
 6. For input behavior changes, test Windows Terminal, WezTerm, and LINE with the
    installed build; automated engine/state tests cannot establish host compatibility.
-7. Publish a new versioned artifact. When a Git tag is explicitly requested, use
-   `v` followed by the full semantic version, for example `v1.0.0-beta.2`.
+7. Push to `master` to publish a versioned Actions artifact. To publish a GitHub
+   Release, run `Fork Build and Release` on `master` with `publish_release` enabled.
+   The workflow creates `v` followed by the full semantic version at the exact
+   validated commit, attaches the MSI, and marks beta/rc versions as prereleases.
+   Existing tags are rejected rather than reused or overwritten.
+
+`master` is this fork's default development and release branch. `main` remains
+the upstream reference and its legacy `build.yml` workflow is disabled. The fork
+workflow accepts pushes and pull requests targeting `master`; manual runs on
+other branches cannot build or publish. No upstream pull request is required.
 
 The default installer is `Win-McBopomofo-1.0.0-beta.3-Installer.msi` and the Actions
 artifact is `Win-McBopomofo-1.0.0-beta.3`. Every release must increase both semantic

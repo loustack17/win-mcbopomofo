@@ -1,0 +1,105 @@
+name: Fork Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish a new versioned release from master after validation
+        type: boolean
+        default: false
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/master' || (github.event_name == 'pull_request' && github.base_ref == 'master')
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: cmake -B build -S . -A x64
+
+      - name: Read release version
+        id: version
+        shell: pwsh
+        run: |
+          $metadata = Get-Content build/generated/version.json -Raw | ConvertFrom-Json
+          "version=$($metadata.version)" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Install OpenCppCoverage
+        run: |
+          choco install opencppcoverage -y
+          echo "C:\Program Files\OpenCppCoverage" >> $env:GITHUB_PATH
+
+      - name: Run Tests with Code Coverage
+        run: |
+          OpenCppCoverage.exe --sources src --export_type cobertura:coverage.xml --cover_children -- ctest.exe --test-dir build -C Debug --output-on-failure
+
+      - name: Install WiX Toolset
+        run: |
+          winget install --id WiXToolset.WiXCLI --accept-package-agreements --accept-source-agreements
+          $env:Path += ";C:\Program Files\WiX Toolset v7.0\bin"
+          wix eula accept wix7
+
+      - name: Build MSI Installer
+        run: .\build_msi.ps1
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Win-McBopomofo-${{ steps.version.outputs.version }}
+          path: dist/Win-McBopomofo-${{ steps.version.outputs.version }}-Installer.msi
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.publish_release
+    runs-on: windows-latest
+    permissions:
+      actions: read
+      contents: write
+    concurrency:
+      group: fork-release-${{ needs.build.outputs.version }}
+      cancel-in-progress: false
+    steps:
+      - name: Publish validated installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:RELEASE_VERSION
+          $tag = "v$version"
+          gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name "Win-McBopomofo-$version" --dir dist
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to download validated installer' }
+          $installer = "dist/Win-McBopomofo-$version-Installer.msi"
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Installer is missing' }
+          $createdTagJson = gh api "repos/$env:GITHUB_REPOSITORY/git/refs" --method POST -f "ref=refs/tags/$tag" -f "sha=$env:GITHUB_SHA"
+          if ($LASTEXITCODE -ne 0) { throw "Cannot create $tag; existing tags must not be reused" }
+          $verifiedTagJson = gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to verify release tag' }
+          $verifiedTag = $verifiedTagJson | ConvertFrom-Json
+          if ($verifiedTag.object.type -ne 'commit' -or $verifiedTag.object.sha -ne $env:GITHUB_SHA) {
+            throw 'Release tag does not match the validated commit'
+          }
+          $releaseArgs = @('release', 'create', $tag, $installer, '--repo', $env:GITHUB_REPOSITORY,
+            '--verify-tag', '--title', $version, '--generate-notes')
+          if ($version.Contains('-')) { $releaseArgs += '--prerelease' }
+          gh @releaseArgs
+          if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed' }
