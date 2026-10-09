@@ -6,11 +6,15 @@
 
 Windows port of McBopomofo built on TSF.
 
-此 fork 以 `master` 為獨立主幹，包含本 fork 的輸入相容性修正與版本化安裝檔。`main` 保留 upstream 參照；本 fork 的修正不提交 upstream PR。
+本專案是 [openvanilla/win-mcbopomofo](https://github.com/openvanilla/win-mcbopomofo) 的個人維護 fork。Windows 移植與原始實作來自上游作者及貢獻者；本 fork 保留原有作者、版權標示與專案來源。
+
+建立此 fork 是因為維護者日常需要使用小麥注音，希望持續修復自己遇到的問題並維護可用的安裝版本。這是基於上游成果的延續維護，不代表上游官方版本，也不表示原始專案的所有權或維護權已移轉。
+
+此 fork 以 `master` 為開發與發行主幹，`main` 保留 upstream 參照。維護重點是輸入相容性、穩定性與簡潔的 codebase；後續會逐步清理經確認不再使用的 legacy 程式碼與重複內容，每次清理都先檢查相依性並驗證既有功能。
 
 推送至 `master` 或提出以 `master` 為目標的 PR，會執行 [Fork Build and Release](https://github.com/loustack17/win-mcbopomofo/actions/workflows/fork-ci.yml)，產生版本化 MSI artifact。在 Actions 手動執行時選擇 `master` 並勾選 `publish_release`，可在驗證完成後發布 [GitHub Release](https://github.com/loustack17/win-mcbopomofo/releases)。beta／rc 會標示為 prerelease；安裝檔沒有數位簽章。
 
-上游專案為 [openvanilla/win-mcbopomofo](https://github.com/openvanilla/win-mcbopomofo)，其不接受外部 PR 的政策適用於上游。
+尊重上游不接受外部 PR 的政策，本 fork 的修改與發行在此維護，不向上游提交 PR。
 
 <!-- TOC -->
 
