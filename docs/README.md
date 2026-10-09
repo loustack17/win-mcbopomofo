@@ -8,6 +8,8 @@ This directory currently contains the following files:
   Describes the actual behavior of the space bar, candidate mode, and page flipping.
 - `system-architecture.md`
   Describes the overall system architecture and module responsibilities of the Windows version.
+- [maintenance-direction.md](maintenance-direction.md)
+  Records future cleanup and language consolidation goals, separate from the current architecture.
 - `candidate-ui-routing.md`
   Describes the current split between the TSF Client and Server-owned custom candidate / tooltip popup windows.
 - `input-state-transitions.md`
