@@ -81,6 +81,22 @@ They do not verify TSF event delivery in LINE or WezTerm; those hosts require
 testing with the installed build and comparing their diagnostic events with
 Windows Terminal.
 
+LINE and WezTerm may fail to output native punctuation and digits after the TIP
+claims a key during testing but the server later declines it. For these hosts
+only, a declined printable ASCII digit or punctuation is synchronously inserted
+through TSF when both the previous and current composition/candidate state are
+empty, no TIP composition exists, and Ctrl, Alt, and Windows keys are absent.
+The actual key callback reports the key as eaten only after SetText succeeds;
+failure before writing leaves it uneaten. If a later cleanup operation fails,
+the already written key remains eaten to prevent duplicate insertion. Failures
+are recorded by stage in the local diagnostic log. Letters and Space keep their
+existing routing. Server punctuation mappings and active composition are retained.
+
+Shift release is additionally registered as a TSF preserved key following the
+Microsoft SampleIME pattern. Preserved and ordinary release callbacks share the
+same pending-press guard, so a single press toggles at most once. Prediction
+callbacks do not toggle modes. Actual delivery in each host requires live testing.
+
 ## Space Bar in Candidate Mode
 
 Implementation is located in `HandleCandidateKey()` of `src/Server/InputController.cpp`.

@@ -94,6 +94,11 @@ target_include_directories(ShiftKeyStateTest PRIVATE ${CMAKE_SOURCE_DIR}/src/Cli
 target_link_libraries(ShiftKeyStateTest PRIVATE gtest_main)
 add_test(NAME ShiftKeyStateTest COMMAND ShiftKeyStateTest)
 
+add_executable(NativeAsciiPolicyTest tests/NativeAsciiPolicyTest.cpp)
+target_include_directories(NativeAsciiPolicyTest PRIVATE ${CMAKE_SOURCE_DIR}/src/Client ${CMAKE_SOURCE_DIR}/src/Common)
+target_link_libraries(NativeAsciiPolicyTest PRIVATE gtest_main)
+add_test(NAME NativeAsciiPolicyTest COMMAND NativeAsciiPolicyTest)
+
 add_executable(ConfigControlStateTest
     tests/ConfigControlStateTest.cpp
     src/ConfigApp/ControlState.cpp)

@@ -113,8 +113,8 @@ STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
       ITfRange* pRange = nullptr;
       if (SUCCEEDED(TraceEditResult("commit-range",
                                    pTIP_->GetComposition()->GetRange(&pRange)))) {
-        TraceEditResult("commit-text", pRange->SetText(
-            ec, 0, commitStr.c_str(), (LONG)commitStr.length()));
+        commitTextWritten_ = SUCCEEDED(TraceEditResult("commit-text", pRange->SetText(
+            ec, 0, commitStr.c_str(), (LONG)commitStr.length())));
 
         // Clear display attributes when committing
         ITfProperty* pProp = nullptr;
@@ -168,8 +168,8 @@ STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
                 pContextComp->StartComposition(ec, pRange, pTIP_, &pComp))) &&
                 pComp) {
               // Insert text into the composition range
-              TraceEditResult("insert-text", pRange->SetText(
-                  ec, 0, commitStr.c_str(), (LONG)commitStr.length()));
+              commitTextWritten_ = SUCCEEDED(TraceEditResult("insert-text", pRange->SetText(
+                  ec, 0, commitStr.c_str(), (LONG)commitStr.length())));
 
               // Move cursor to the end of inserted text
               pRange->Collapse(ec, TF_ANCHOR_END);

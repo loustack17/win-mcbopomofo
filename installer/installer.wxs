@@ -44,11 +44,11 @@
     <MediaTemplate EmbedCab="yes" />
 
     <!-- Detect and close applications to prevent file locks during installation/uninstallation -->
-    <util:CloseApplication Id="CloseServerAppLegacy" Target="McBopomofoServer.exe" CloseMessage="yes" RebootPrompt="yes" />
+    <util:CloseApplication Id="CloseServerAppLegacy" Target="McBopomofoServer.exe" CloseMessage="yes" TerminateProcess="0" Timeout="5" RebootPrompt="no" />
     <util:CloseApplication Id="CloseConfigAppLegacy" Target="McBopomofoConfig.exe" CloseMessage="yes" RebootPrompt="yes" />
-    <util:CloseApplication Id="CloseServerAppX86" Target="McBopomofoServer_x86.exe" CloseMessage="yes" RebootPrompt="yes" />
-    <util:CloseApplication Id="CloseServerAppX64" Target="McBopomofoServer_x64.exe" CloseMessage="yes" RebootPrompt="yes" />
-    <util:CloseApplication Id="CloseServerAppArm64" Target="McBopomofoServer_arm64.exe" CloseMessage="yes" RebootPrompt="yes" />
+    <util:CloseApplication Id="CloseServerAppX86" Target="McBopomofoServer_x86.exe" CloseMessage="yes" TerminateProcess="0" Timeout="5" RebootPrompt="no" />
+    <util:CloseApplication Id="CloseServerAppX64" Target="McBopomofoServer_x64.exe" CloseMessage="yes" TerminateProcess="0" Timeout="5" RebootPrompt="no" />
+    <util:CloseApplication Id="CloseServerAppArm64" Target="McBopomofoServer_arm64.exe" CloseMessage="yes" TerminateProcess="0" Timeout="5" RebootPrompt="no" />
     <util:CloseApplication Id="CloseConfigAppX86" Target="McBopomofoConfig_x86.exe" CloseMessage="yes" RebootPrompt="yes" />
     <util:CloseApplication Id="CloseConfigAppX64" Target="McBopomofoConfig_x64.exe" CloseMessage="yes" RebootPrompt="yes" />
     <util:CloseApplication Id="CloseConfigAppArm64" Target="McBopomofoConfig_arm64.exe" CloseMessage="yes" RebootPrompt="yes" />

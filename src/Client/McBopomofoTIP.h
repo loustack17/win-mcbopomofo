@@ -141,12 +141,14 @@ class McBopomofoTIP : public ITfTextInputProcessorEx,
   mutable ULONGLONG shiftSettingsRefreshTick_ = 0;
   mutable bool shiftToggleEnabled_ = true;
   bool processDisabled_ = false;
+  bool shiftPreservedKeyRegistered_ = false;
+  std::string hostProcessName_;
 
  public:
   void ToggleOpenClose();
   bool IsOpen();
   void RefreshLangBar();
-  void applyStateToContext_(ITfContext* context,
+  bool applyStateToContext_(ITfContext* context,
                             const McBopomofo::IPC::StateUpdatePayload& state,
                             const char* logPrefix);
 

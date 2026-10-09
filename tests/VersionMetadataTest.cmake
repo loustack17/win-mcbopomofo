@@ -47,9 +47,10 @@ function(check_version name core prerelease revision expected_version expected_m
 endfunction()
 
 check_version(beta "1.0.0" "beta.2" 2 "1.0.0-beta.2" "1.0.2")
-check_version(rc "1.0.0" "rc.1" 3 "1.0.0-rc.1" "1.0.3")
-check_version(stable "1.0.0" "" 4 "1.0.0" "1.0.4")
-check_version(patch "1.0.1" "" 5 "1.0.1" "1.0.5")
+check_version(beta_current "1.0.0" "beta.3" 3 "1.0.0-beta.3" "1.0.3")
+check_version(rc "1.0.0" "rc.1" 4 "1.0.0-rc.1" "1.0.4")
+check_version(stable "1.0.0" "" 5 "1.0.0" "1.0.5")
+check_version(patch "1.0.1" "" 6 "1.0.1" "1.0.6")
 check_version(minor "1.1.0" "beta.1" 1 "1.1.0-beta.1" "1.1.1")
 check_version(core_zero "01.0.0" "beta.2" 2 "invalid" "")
 check_version(beta_zero "1.0.0" "beta.02" 2 "invalid" "")
@@ -58,9 +59,9 @@ check_version(revision_overflow "1.0.0" "beta.2" 65536 "invalid" "")
 check_version(major_overflow "256.0.0" "beta.2" 2 "invalid" "")
 check_version(missing_revision "1.0.0" "beta.2" "" "invalid" "")
 
-if(NOT "1.0.2" VERSION_GREATER "1.0.0" OR
-   NOT "1.0.4" VERSION_GREATER "1.0.3" OR
-   NOT "1.1.1" VERSION_GREATER "1.0.5")
+if(NOT "1.0.3" VERSION_GREATER "1.0.2" OR
+   NOT "1.0.5" VERSION_GREATER "1.0.4" OR
+   NOT "1.1.1" VERSION_GREATER "1.0.6")
   message(FATAL_ERROR "Windows upgrade ordering is invalid")
 endif()
 message(STATUS "Beta, RC, stable, upgrade ordering, and invalid metadata verified")

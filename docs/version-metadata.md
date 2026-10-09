@@ -33,7 +33,7 @@ Never reset it when moving from beta to rc or stable, or when changing PATCH.
 It may restart at 1 only when MAJOR or MINOR increases. MAJOR and MINOR must fit
 0..255 and WINDOWS_REVISION must fit 1..65535; generation rejects invalid values.
 
-Current mapping: `1.0.0-beta.2` -> MSI `1.0.2` -> numeric PE resources `1.0.2.0`.
+Current mapping: `1.0.0-beta.3` -> MSI `1.0.3` -> numeric PE resources `1.0.3.0`.
 This upgrades the legacy `1.0.0.0` MSI, which compares as `1.0.0`. Full semantic
 versions appear in PE FileVersion/ProductVersion strings, the installed product
 name, and installer/artifact filenames. Prerelease resources carry the prerelease
@@ -52,8 +52,8 @@ flag. UpgradeCode and component GUIDs remain stable.
 7. Publish a new versioned artifact. When a Git tag is explicitly requested, use
    `v` followed by the full semantic version, for example `v1.0.0-beta.2`.
 
-The default installer is `Win-McBopomofo-1.0.0-beta.2-Installer.msi` and the Actions
-artifact is `Win-McBopomofo-1.0.0-beta.2`. Every release must increase both semantic
+The default installer is `Win-McBopomofo-1.0.0-beta.3-Installer.msi` and the Actions
+artifact is `Win-McBopomofo-1.0.0-beta.3`. Every release must increase both semantic
 precedence and the Windows upgrade version. Rebuilding the same source for local
 verification does not require a version increment.
 Custom `-OutputName` values must also contain the full semantic version and end

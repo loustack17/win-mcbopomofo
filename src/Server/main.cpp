@@ -634,9 +634,44 @@ class ServerFileReloader {
 #define IDM_TOGGLE_LOGGING 1009
 #define IDM_TRACE_LOG 1010
 
+static UINT TaskbarCreatedMessage() {
+  static const UINT message = RegisterWindowMessageW(L"TaskbarCreated");
+  return message;
+}
+
+static void InitializeTrayIconData(HWND hwnd, NOTIFYICONDATAW& nid) {
+  HINSTANCE hInst = GetModuleHandle(NULL);
+  nid = {sizeof(NOTIFYICONDATAW)};
+  nid.hWnd = hwnd;
+  nid.uID = 1u;
+  nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+  nid.uCallbackMessage = WM_USER_TRAY;
+  nid.hIcon = LoadIconW(hInst, MAKEINTRESOURCEW(IDI_ICON_APP));
+  wcscpy_s(nid.szTip, LoadLocalizedStringW(hInst, IDS_TRAY_TIP).c_str());
+}
+
+static void AddTrayIcon(HWND hwnd) {
+  NOTIFYICONDATAW nid = {sizeof(NOTIFYICONDATAW)};
+  InitializeTrayIconData(hwnd, nid);
+  Shell_NotifyIconW(NIM_ADD, &nid);
+}
+
 static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam,
                                     LPARAM lParam) {
-  if (msg == WM_USER_TRAY) {
+  if (msg == WM_CLOSE) {
+    PostQuitMessage(0);
+    return 0;
+  } else if (msg == WM_QUERYENDSESSION) {
+    return TRUE;
+  } else if (msg == WM_ENDSESSION) {
+    if (wParam) {
+      PostQuitMessage(0);
+    }
+    return 0;
+  } else if (msg == TaskbarCreatedMessage()) {
+    AddTrayIcon(hwnd);
+    return 0;
+  } else if (msg == WM_USER_TRAY) {
     if (LOWORD(lParam) == WM_RBUTTONUP) {
       POINT pt;
       GetCursorPos(&pt);
@@ -963,13 +998,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   popupController.Create(hInst);
 
   NOTIFYICONDATAW nid = {sizeof(NOTIFYICONDATAW)};
-  nid.hWnd = hwndTray;
-  nid.uID = 1u;
-  nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-  nid.uCallbackMessage = WM_USER_TRAY;
-  nid.hIcon = LoadIconW(wcex.hInstance, MAKEINTRESOURCEW(IDI_ICON_APP));
-  wcscpy_s(nid.szTip, LoadLocalizedStringW(hInst, IDS_TRAY_TIP).c_str());
-
+  InitializeTrayIconData(hwndTray, nid);
   Shell_NotifyIconW(NIM_ADD, &nid);
 
   server.Start();

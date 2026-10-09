@@ -33,8 +33,10 @@ class CStateEditSession : public CEditSessionBase {
   ~CStateEditSession();
 
   STDMETHODIMP DoEditSession(TfEditCookie ec) override;
+  bool CommitTextWritten() const { return commitTextWritten_; }
 
  private:
   McBopomofoTIP* pTIP_;
   McBopomofo::IPC::StateUpdatePayload state_;
+  bool commitTextWritten_ = false;
 };

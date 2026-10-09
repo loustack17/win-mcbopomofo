@@ -58,3 +58,18 @@ TEST(ShiftKeyStateTest, RepeatedShiftDownTogglesOnlyOnce) {
   EXPECT_TRUE(state.keyUp(true, false, true));
   EXPECT_FALSE(state.keyUp(true, false, true));
 }
+
+TEST(ShiftKeyStateTest, PreservedReleaseThenActualReleaseTogglesOnce) {
+  ShiftKeyState state;
+  ASSERT_TRUE(state.keyDown(true, false, true));
+  EXPECT_TRUE(state.keyUp(true, false, true));
+  EXPECT_FALSE(state.keyUp(true, false, true));
+}
+
+TEST(ShiftKeyStateTest, ActualReleaseThenPreservedReleaseTogglesOnce) {
+  ShiftKeyState state;
+  ASSERT_TRUE(state.keyDown(true, false, true));
+  EXPECT_TRUE(state.testKeyUp(true, false, true));
+  EXPECT_TRUE(state.keyUp(true, false, true));
+  EXPECT_FALSE(state.keyUp(true, false, true));
+}
