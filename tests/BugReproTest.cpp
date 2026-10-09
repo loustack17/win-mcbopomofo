@@ -331,6 +331,134 @@ _punctuation_, ， -1.0
   EXPECT_GE(stateCount, 1);
 }
 
+class DirectPunctuationTest : public BugReproTest {
+ protected:
+  void SetUp() override {
+    BugReproTest::SetUp();
+    static constexpr char model[] = R"(
+# format org.openvanilla.mcbopomofo.sorted
+_half_punctuation_! ! -9.0
+_half_punctuation_! ！ -1.0
+_half_punctuation_, , -1.0
+_half_punctuation_< , -1.0
+_punctuation_, ， -1.0
+_punctuation_< ， -1.0
+ㄋㄧ 你 -1.0
+ㄋㄧˇ 你 -1.0
+)";
+    lm->loadLanguageModel(
+        std::make_unique<ParselessPhraseDB>(model, sizeof(model)));
+    controller->setChooseCandidateUsingSpace(false);
+  }
+
+  void composeChinese() {
+    ASSERT_TRUE(controller->handleKey(Key::asciiKey('s', false, false)));
+    ASSERT_TRUE(controller->handleKey(Key::asciiKey('u', false, false)));
+    ASSERT_TRUE(controller->handleKey(Key::asciiKey('3', false, false)));
+    ASSERT_EQ(ui->lastState.composingBuffer, "你");
+  }
+};
+
+TEST_F(DirectPunctuationTest, StandaloneFullWidthPunctuationCommitsImmediately) {
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('<', false, false)));
+  EXPECT_EQ(ui->committedString, "，");
+  EXPECT_NE(dynamic_cast<InputStates::Empty*>(controller->currentState()), nullptr);
+}
+
+TEST_F(DirectPunctuationTest, StandaloneHalfWidthPunctuationCommitsImmediately) {
+  controller->setHalfWidthPunctuationEnabled(true);
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('<', false, false)));
+  EXPECT_EQ(ui->committedString, ",");
+  EXPECT_NE(dynamic_cast<InputStates::Empty*>(controller->currentState()), nullptr);
+}
+
+TEST_F(DirectPunctuationTest, PunctuationCommitsPendingChineseTogether) {
+  composeChinese();
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('<', false, false)));
+  EXPECT_EQ(ui->committedString, "你，");
+  EXPECT_NE(dynamic_cast<InputStates::Empty*>(controller->currentState()), nullptr);
+}
+
+TEST_F(DirectPunctuationTest, SpaceCommitsPendingChineseTogether) {
+  composeChinese();
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey(Key::SPACE, false, false)));
+  EXPECT_EQ(ui->committedString, "你 ");
+  EXPECT_NE(dynamic_cast<InputStates::Empty*>(controller->currentState()), nullptr);
+}
+
+TEST_F(DirectPunctuationTest, EmptySpacePassesThroughToApplication) {
+  EXPECT_FALSE(controller->handleKey(Key::asciiKey(Key::SPACE, false, false)));
+  EXPECT_TRUE(ui->committedString.empty());
+}
+
+TEST_F(DirectPunctuationTest, PunctuationDoesNotCommitUnfinishedReading) {
+  ASSERT_TRUE(controller->handleKey(Key::asciiKey('s', false, false)));
+  ASSERT_EQ(ui->lastState.composingBuffer, "ㄋ");
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('<', false, false)));
+  EXPECT_TRUE(ui->committedString.empty());
+  EXPECT_EQ(ui->lastState.composingBuffer, "ㄋ");
+}
+
+TEST_F(DirectPunctuationTest, RepeatedPunctuationSelectionKeepsComposition) {
+  controller->setRepeatedPunctuationToSelectCandidateEnabled(true);
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('<', false, false)));
+  EXPECT_TRUE(ui->committedString.empty());
+  EXPECT_EQ(ui->lastState.composingBuffer, "，");
+}
+
+TEST_F(DirectPunctuationTest, PunctuationInsideChineseKeepsComposition) {
+  composeChinese();
+  ASSERT_TRUE(controller->handleKey(Key(0, Key::KeyName::LEFT)));
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('<', false, false)));
+  EXPECT_TRUE(ui->committedString.empty());
+  EXPECT_EQ(ui->lastState.composingBuffer, "，你");
+}
+
+TEST_F(DirectPunctuationTest, HsuPunctuationCommitsImmediately) {
+  controller->setKeyboardLayout(
+      Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout());
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey(',', false, false)));
+  EXPECT_EQ(ui->committedString, "，");
+}
+
+TEST_F(DirectPunctuationTest, UnchangedHsuHalfWidthPunctuationPassesToHost) {
+  controller->setKeyboardLayout(
+      Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout());
+  controller->setHalfWidthPunctuationEnabled(true);
+  EXPECT_FALSE(controller->handleKey(Key::asciiKey(',', false, false)));
+  EXPECT_TRUE(ui->committedString.empty());
+  EXPECT_NE(dynamic_cast<InputStates::Empty*>(controller->currentState()), nullptr);
+}
+
+TEST_F(DirectPunctuationTest, HalfWidthPunctuationCommitsPendingChineseTogether) {
+  controller->setHalfWidthPunctuationEnabled(true);
+  composeChinese();
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('<', false, false)));
+  EXPECT_EQ(ui->committedString, "你,");
+}
+
+TEST_F(DirectPunctuationTest, HalfWidthPassthroughUsesHighestScoredCandidate) {
+  controller->setHalfWidthPunctuationEnabled(true);
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey('!', false, false)));
+  EXPECT_EQ(ui->committedString, "！");
+}
+
+TEST_F(DirectPunctuationTest, SpaceStillCompletesUnfinishedReading) {
+  ASSERT_TRUE(controller->handleKey(Key::asciiKey('s', false, false)));
+  ASSERT_TRUE(controller->handleKey(Key::asciiKey('u', false, false)));
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey(Key::SPACE, false, false)));
+  EXPECT_TRUE(ui->committedString.empty());
+  EXPECT_EQ(ui->lastState.composingBuffer, "你");
+}
+
+TEST_F(DirectPunctuationTest, CandidateSpaceStillPagesCandidates) {
+  controller->setChooseCandidateUsingSpace(true);
+  composeChinese();
+  EXPECT_TRUE(controller->handleKey(Key::asciiKey(Key::SPACE, false, false)));
+  EXPECT_TRUE(ui->committedString.empty());
+  EXPECT_FALSE(ui->lastState.candidates.empty());
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

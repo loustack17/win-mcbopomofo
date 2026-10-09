@@ -27,6 +27,11 @@ Implementation is located in `src/Server/KeyHandler.cpp`.
     - `ChooseCandidateUsingSpace == false`
 - Then the space bar is treated as a literal space character and inserted into the composing buffer.
 
+At the end of the buffer, this commits the Chinese text together with the space
+immediately. Inside the buffer, it keeps the composition active for editing.
+With an empty buffer, a plain space passes through to the application. Space
+still completes an unfinished Bopomofo reading before acting as a separator.
+
 Conversely:
 
 - If the current state is `NotEmpty`
@@ -34,6 +39,23 @@ Conversely:
 - And reading is empty
 
 Then pressing the space bar will enter the candidate choosing state.
+
+## Direct Punctuation
+
+In normal McBopomofo mode, punctuation at the end of the composing buffer commits
+immediately, including any preceding composed Chinese text. Standalone full-width
+and half-width punctuation also commits immediately, without an extra Enter key.
+
+When the buffer is empty and a half-width punctuation mapping produces exactly
+the original character, the key passes through to the application. This avoids
+creating a TSF composition for unchanged ASCII punctuation. Layout mappings that
+change the character still use the input method's normal commit path.
+
+Punctuation does not confirm an unfinished Bopomofo reading. Inserting punctuation
+inside the buffer retains the composition for editing. Enabling repeated-key
+punctuation selection retains the original composition behavior so alternatives
+can still be selected. Plain Bopomofo mode and the punctuation menu retain their
+existing candidate selection behavior.
 
 ## Space Bar in Candidate Mode
 

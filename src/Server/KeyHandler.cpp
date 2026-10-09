@@ -483,13 +483,34 @@ bool KeyHandler::handle(Key key, McBopomofo::InputState* state,
     }
 
     if (halfWidthPunctuationEnabled_) {
+      auto canPassThrough = [&](const std::string& punctuationKey) {
+        if (inputMode_ != InputMode::McBopomofo ||
+            repeatedPunctuationToSelectCandidateEnabled_ ||
+            dynamic_cast<InputStates::Empty*>(state) == nullptr ||
+            !reading_.isEmpty() || grid_.length() != 0) {
+          return false;
+        }
+        auto unigrams = lm_->getUnigrams(punctuationKey);
+        auto selected = std::max_element(
+            unigrams.begin(), unigrams.end(),
+            [](const auto& lhs, const auto& rhs) {
+              return lhs.score() < rhs.score();
+            });
+        return selected != unigrams.end() && selected->value() == chrStr;
+      };
       unigram = std::string(kHalfWidthPunctuationKeyPrefix) +
                 GetKeyboardLayoutName(reading_.keyboardLayout()) + "_" + chrStr;
+      if (canPassThrough(unigram)) {
+        return false;
+      }
       if (handlePunctuation(unigram, state, stateCallback, errorCallback)) {
         return true;
       }
 
       unigram = std::string(kHalfWidthPunctuationKeyPrefix) + chrStr;
+      if (canPassThrough(unigram)) {
+        return false;
+      }
       if (handlePunctuation(unigram, state, stateCallback, errorCallback)) {
         return true;
       }
@@ -1191,6 +1212,14 @@ bool KeyHandler::handlePunctuation(const std::string& punctuationUnigramKey,
     }
   } else {
     auto inputting = buildInputtingState();
+    if (!repeatedPunctuationToSelectCandidateEnabled_ &&
+        grid_.cursor() == grid_.length()) {
+      auto committing = std::make_unique<InputStates::Committing>(
+          inputting->composingBuffer);
+      reset();
+      stateCallback(std::move(committing));
+      return true;
+    }
     auto copy = std::make_unique<InputStates::Inputting>(*inputting);
     stateCallback(std::move(inputting));
     if (associatedPhrasesEnabled_) {
