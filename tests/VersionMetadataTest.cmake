@@ -1,0 +1,66 @@
+function(check_version name core prerelease revision expected_version expected_msi)
+  set(case_dir "${TEST_ROOT}/${name}")
+  file(MAKE_DIRECTORY "${case_dir}")
+  file(WRITE "${case_dir}/Version.cmake"
+    "set(WINMCBOPOMOFO_VERSION_CORE \"${core}\")\n"
+    "set(WINMCBOPOMOFO_VERSION_PRERELEASE \"${prerelease}\")\n"
+    "set(WINMCBOPOMOFO_WINDOWS_REVISION ${revision})\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}"
+    "-DINPUT_VERSION_FILE=${case_dir}/Version.cmake"
+    "-DOUTPUT_RC_FILE=${case_dir}/version.rcinc"
+    "-DOUTPUT_METADATA_FILE=${case_dir}/version.json"
+    -P "${VERSION_GENERATOR}"
+    RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+  if(expected_version STREQUAL "invalid")
+    if(result EQUAL 0)
+      message(FATAL_ERROR "${name}: invalid version was accepted")
+    endif()
+    return()
+  endif()
+  if(NOT result EQUAL 0)
+    message(FATAL_ERROR "${name}: ${output}${error}")
+  endif()
+  file(READ "${case_dir}/version.json" metadata)
+  string(JSON actual_version GET "${metadata}" version)
+  string(JSON actual_msi GET "${metadata}" msiVersion)
+  if(NOT actual_version STREQUAL expected_version OR NOT actual_msi STREQUAL expected_msi)
+    message(FATAL_ERROR "${name}: inconsistent release metadata: ${metadata}")
+  endif()
+  file(READ "${case_dir}/version.rcinc" resource)
+  if(NOT resource MATCHES "WINMCBOPOMOFO_VERSION_STR \"${expected_version}\"")
+    message(FATAL_ERROR "${name}: resource version differs from metadata")
+  endif()
+  string(REPLACE "." "," numeric "${expected_msi}")
+  string(FIND "${resource}" "WINMCBOPOMOFO_VERSION_NUM ${numeric},0" numeric_position)
+  if(numeric_position LESS 0)
+    message(FATAL_ERROR "${name}: numeric resource version differs from MSI")
+  endif()
+  if(prerelease STREQUAL "")
+    set(flags "0x0L")
+  else()
+    set(flags "0x2L")
+  endif()
+  string(FIND "${resource}" "WINMCBOPOMOFO_VERSION_FLAGS ${flags}" flags_position)
+  if(flags_position LESS 0)
+    message(FATAL_ERROR "${name}: incorrect prerelease flag")
+  endif()
+endfunction()
+
+check_version(beta "1.0.0" "beta.2" 2 "1.0.0-beta.2" "1.0.2")
+check_version(rc "1.0.0" "rc.1" 3 "1.0.0-rc.1" "1.0.3")
+check_version(stable "1.0.0" "" 4 "1.0.0" "1.0.4")
+check_version(patch "1.0.1" "" 5 "1.0.1" "1.0.5")
+check_version(minor "1.1.0" "beta.1" 1 "1.1.0-beta.1" "1.1.1")
+check_version(core_zero "01.0.0" "beta.2" 2 "invalid" "")
+check_version(beta_zero "1.0.0" "beta.02" 2 "invalid" "")
+check_version(revision_zero "1.0.0" "beta.2" 0 "invalid" "")
+check_version(revision_overflow "1.0.0" "beta.2" 65536 "invalid" "")
+check_version(major_overflow "256.0.0" "beta.2" 2 "invalid" "")
+check_version(missing_revision "1.0.0" "beta.2" "" "invalid" "")
+
+if(NOT "1.0.2" VERSION_GREATER "1.0.0" OR
+   NOT "1.0.4" VERSION_GREATER "1.0.3" OR
+   NOT "1.1.1" VERSION_GREATER "1.0.5")
+  message(FATAL_ERROR "Windows upgrade ordering is invalid")
+endif()
+message(STATUS "Beta, RC, stable, upgrade ordering, and invalid metadata verified")

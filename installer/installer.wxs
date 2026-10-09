@@ -3,9 +3,9 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <!-- Use a static upgrade code to allow seamless upgrades later -->
-  <Package Name="!(loc.ProductName)"
+  <Package Name="!(loc.ProductName) $(var.ReleaseVersion)"
            Manufacturer="!(loc.Manufacturer)"
-           Version="1.0.0.0"
+           Version="$(var.MsiVersion)"
            UpgradeCode="4e4b52c0-cf52-47b1-9b7e-976c6dfcbb17"
            Scope="perMachine"
            InstallerVersion="200"
@@ -38,8 +38,7 @@
       <RegistrySearch Id="SearchInstallDir" Root="HKLM" Key="SOFTWARE\McBopomofo" Name="InstallDir" Type="raw" />
     </Property>
 
-    <MajorUpgrade AllowSameVersionUpgrades="yes"
-                  DowngradeErrorMessage="!(loc.DowngradeError)" />
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
 
     <!-- Ensure cab files are embedded in the MSI -->
     <MediaTemplate EmbedCab="yes" />

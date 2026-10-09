@@ -1,100 +1,60 @@
-# Version Metadata
+# Release versions
 
-This document explains how Win-McBopomofo generates Windows binary version
-metadata for its executables and DLLs.
+The canonical source is `Version.cmake`. All executable and DLL resources,
+MSI metadata, default installer names, and GitHub Actions artifact names derive
+from it. Generated files must not be edited manually.
 
-## Source of Truth
+## Semantic version policy
 
-The canonical project version is declared in the top-level
-`CMakeLists.txt`:
+Follow [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+For this fork, the upstream baseline at `7b09eef` is treated as
+`1.0.0-beta.1`; this is a historical baseline designation, not a new upstream tag.
+The first explicitly versioned fork release is `1.0.0-beta.2`, containing the
+punctuation, Space, and Shift fixes. Earlier unversioned artifacts remain unchanged.
 
-```cmake
-project(WinMcBopomofo VERSION 1.0.0 LANGUAGES CXX C)
-```
+Increment beta numbers for subsequent test releases of the same target version:
+`1.0.0-beta.2`, `1.0.0-beta.3`, and so on. Use `1.0.0-rc.1` when ready for final
+release validation, then `1.0.0` after acceptance. Alpha, beta, and rc identifiers
+use positive numeric ordinals without leading zeros.
 
-This `project(... VERSION ...)` field is the only version string that should be
-edited when the product version changes.
+After a stable release, increment PATCH for compatible fixes, MINOR for compatible
+features, and MAJOR for incompatible changes to supported behavior or configuration.
+Reset lower components when incrementing MINOR or MAJOR. Release version strings
+are immutable: changed published binaries require a new release version.
 
-## Generation Flow
+## Windows upgrade version
 
-During CMake configure, the build runs:
+[Windows Installer](https://learn.microsoft.com/en-us/windows/win32/msi/productversion)
+accepts numeric versions and compares only the first three components. Therefore
+its version is `MAJOR.MINOR.WINDOWS_REVISION`, where WINDOWS_REVISION is a separate
+release serial, not the SemVer patch. Increment it for every published release
+within the same MAJOR.MINOR, including beta, rc, stable, and patch releases.
+Never reset it when moving from beta to rc or stable, or when changing PATCH.
+It may restart at 1 only when MAJOR or MINOR increases. MAJOR and MINOR must fit
+0..255 and WINDOWS_REVISION must fit 1..65535; generation rejects invalid values.
 
-- `cmake/GenerateVersionRc.cmake`
+Current mapping: `1.0.0-beta.2` -> MSI `1.0.2` -> numeric PE resources `1.0.2.0`.
+This upgrades the legacy `1.0.0.0` MSI, which compares as `1.0.0`. Full semantic
+versions appear in PE FileVersion/ProductVersion strings, the installed product
+name, and installer/artifact filenames. Prerelease resources carry the prerelease
+flag. UpgradeCode and component GUIDs remain stable.
 
-That script:
+## Release checklist
 
-1. Reads the repository root `CMakeLists.txt`
-2. Extracts the `VERSION` value from the `project(...)` declaration
-3. Converts the version into Windows resource macros
-4. Writes a generated include file to:
-   `${CMAKE_BINARY_DIR}/generated/WinMcBopomofoVersion.rcinc`
+1. Update the core version, prerelease, and Windows revision in `Version.cmake`.
+2. Record changes and remaining known issues in `CHANGELOG.md`.
+3. Configure and build; run CTest and inspect the actual binary version resources.
+4. Build the MSI. Packaging rejects binaries whose ProductVersion differs from
+   the canonical version, including when using `-SkipBuild`.
+5. Verify MSI ProductVersion and an upgrade from the previous installed release.
+6. For input behavior changes, test Windows Terminal, WezTerm, and LINE with the
+   installed build; automated engine/state tests cannot establish host compatibility.
+7. Publish a new versioned artifact. When a Git tag is explicitly requested, use
+   `v` followed by the full semantic version, for example `v1.0.0-beta.2`.
 
-The generated file currently defines:
-
-```c
-#define WINMCBOPOMOFO_VERSION_NUM 1,0,0,0
-#define WINMCBOPOMOFO_VERSION_STR "1.0.0.0"
-```
-
-## Version Mapping Rule
-
-Windows version resources use a four-part numeric version:
-
-- `major`
-- `minor`
-- `patch`
-- `tweak`
-
-The project version in `CMakeLists.txt` is currently parsed as:
-
-- `major.minor.patch`
-- or `major.minor.patch.tweak`
-
-The conversion rules are:
-
-1. If the source version has three components, the generated Windows version
-   becomes `major.minor.patch.0`.
-2. If the source version has four components, the generated Windows version
-   keeps all four values.
-
-Examples:
-
-- `1.0.0` -> `1.0.0.0`
-- `2.4.7` -> `2.4.7.0`
-- `3.1.5.12` -> `3.1.5.12`
-
-## Where the Generated Version Is Used
-
-The generated resource include is consumed by:
-
-- `src/Client/McBopomofoTIP.rc`
-- `src/Server/McBopomofoServer.rc`
-- `src/ConfigApp/McBopomofoConfig.rc`
-
-These resource files use the generated macros for:
-
-- `FILEVERSION`
-- `PRODUCTVERSION`
-- `FileVersion`
-- `ProductVersion`
-
-Other metadata fields such as `CompanyName`, `ProductName`,
-`FileDescription`, and `OriginalFilename` remain static in each `.rc` file,
-because they differ by binary or are not version-derived.
-
-## Why This Exists
-
-This setup avoids duplicating the version number across multiple Windows
-resource files. It keeps the build aligned with the CMake project version and
-reduces the risk that one binary reports a different version from another.
-
-## Maintenance Rule
-
-When changing the product version:
-
-1. Update the `VERSION` field in the root `CMakeLists.txt`
-2. Re-run CMake configure
-3. Rebuild the targets
-
-Do not manually edit the generated file under `${CMAKE_BINARY_DIR}`. It is a
-build artifact and will be regenerated on the next configure step.
+The default installer is `Win-McBopomofo-1.0.0-beta.2-Installer.msi` and the Actions
+artifact is `Win-McBopomofo-1.0.0-beta.2`. Every release must increase both semantic
+precedence and the Windows upgrade version. Rebuilding the same source for local
+verification does not require a version increment.
+Custom `-OutputName` values must also contain the full semantic version and end
+in `.msi`.

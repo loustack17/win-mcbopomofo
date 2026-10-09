@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 3.20)
-project(WinMcBopomofo VERSION 1.0.0 LANGUAGES CXX C)
+include(${CMAKE_SOURCE_DIR}/Version.cmake)
+project(WinMcBopomofo VERSION ${WINMCBOPOMOFO_VERSION_CORE} LANGUAGES CXX C)
 
 set(WINMCBOPOMOFO_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
 set(WINMCBOPOMOFO_VERSION_RC "${WINMCBOPOMOFO_GENERATED_DIR}/WinMcBopomofoVersion.rcinc")
 execute_process(
     COMMAND
         ${CMAKE_COMMAND}
-        -DINPUT_CMAKE_FILE=${CMAKE_SOURCE_DIR}/CMakeLists.txt
+        -DINPUT_VERSION_FILE=${CMAKE_SOURCE_DIR}/Version.cmake
         -DOUTPUT_RC_FILE=${WINMCBOPOMOFO_VERSION_RC}
+        -DOUTPUT_METADATA_FILE=${WINMCBOPOMOFO_GENERATED_DIR}/version.json
         -P ${CMAKE_SOURCE_DIR}/cmake/GenerateVersionRc.cmake
     COMMAND_ERROR_IS_FATAL ANY
 )
@@ -49,6 +51,10 @@ add_subdirectory(src)
 # Add tests
 set(BUILD_TESTING ON CACHE BOOL "Enable project tests" FORCE)
 enable_testing()
+add_test(NAME VersionMetadataTest COMMAND ${CMAKE_COMMAND}
+    -DVERSION_GENERATOR=${CMAKE_SOURCE_DIR}/cmake/GenerateVersionRc.cmake
+    -DTEST_ROOT=${CMAKE_BINARY_DIR}/version-tests
+    -P ${CMAKE_SOURCE_DIR}/tests/VersionMetadataTest.cmake)
 add_executable(CandidateWindowTest tests/test_candidate_window.cpp src/Server/CandidateWindow.cpp src/Client/Globals.cpp src/Common/UTFHelper.cpp)
 target_include_directories(CandidateWindowTest PRIVATE ${CMAKE_SOURCE_DIR}/src/Server ${CMAKE_SOURCE_DIR}/src/Client ${CMAKE_SOURCE_DIR}/src/Common ${CMAKE_SOURCE_DIR}/src/Server/Engine)
 target_link_libraries(CandidateWindowTest PRIVATE Common user32 gdi32 d2d1 dwrite advapi32 ole32 shell32)

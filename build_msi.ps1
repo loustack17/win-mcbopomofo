@@ -3,7 +3,7 @@
 #
 param(
     [string]$Configuration = "Release",
-    [string]$OutputName = "Win-McBopomofo-Installer.msi",
+    [string]$OutputName = "",
     [switch]$SkipBuild = $false
 )
 
@@ -21,6 +21,16 @@ $GeneratedDir = "build_msi_generated"
 $LicenseTxtPath = "LICENSE.txt"
 $LicenseRtfPath = Join-Path $GeneratedDir "LICENSE.rtf"
 $RequiredWixExtensionVersion = "7.0.0"
+
+cmake "-DINPUT_VERSION_FILE=$PSScriptRoot/Version.cmake" "-DOUTPUT_RC_FILE=$GeneratedDir/WinMcBopomofoVersion.rcinc" "-DOUTPUT_METADATA_FILE=$GeneratedDir/version.json" -P "$PSScriptRoot/cmake/GenerateVersionRc.cmake"
+if ($LASTEXITCODE -ne 0) { throw "Version metadata generation failed" }
+$ReleaseMetadata = Get-Content -LiteralPath "$GeneratedDir/version.json" -Raw | ConvertFrom-Json
+if ([string]::IsNullOrWhiteSpace($OutputName)) {
+    $OutputName = "Win-McBopomofo-$($ReleaseMetadata.version)-Installer.msi"
+}
+if (-not $OutputName.Contains($ReleaseMetadata.version) -or [System.IO.Path]::GetExtension($OutputName) -ne ".msi") {
+    throw "Installer filename must contain release version $($ReleaseMetadata.version) and end in .msi"
+}
 
 # Detect current platform
 function Get-CurrentPlatform {
@@ -128,6 +138,12 @@ function Convert-LicenseTextToRtf([string]$InputPath, [string]$OutputPath) {
 }
 
 Build-AllArchitectures
+foreach ($artifactPath in $requiredArtifacts) {
+    $binaryVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path -LiteralPath $artifactPath).Path)
+    if ($binaryVersion.ProductVersion -ne $ReleaseMetadata.version) {
+        throw "Stale binary version in ${artifactPath}: expected $($ReleaseMetadata.version), got $($binaryVersion.ProductVersion)"
+    }
+}
 Convert-LicenseTextToRtf -InputPath $LicenseTxtPath -OutputPath $LicenseRtfPath
 
 function Find-WixExecutable {
@@ -159,6 +175,7 @@ function Invoke-WixBuild([string]$WixExe, [string]$OutDir, [string]$OutputName, 
     & $WixExe build -ext "WixToolset.UI.wixext/$RequiredWixExtensionVersion" -ext "WixToolset.Util.wixext/$RequiredWixExtensionVersion" `
         installer\installer.wxs installer\zh-TW.wxl installer\en-US.wxl `
         -culture zh-TW -o $MsiPath `
+        -d "ReleaseVersion=$($ReleaseMetadata.version)" -d "MsiVersion=$($ReleaseMetadata.msiVersion)" `
         -b "X64BinDir=$X64BinDir" -b "X86BinDir=$X86BinDir" -b "Arm64BinDir=$Arm64BinDir" -b "OpenCCDir=$OpenCCDir"
     
     if ($LASTEXITCODE -ne 0) { throw "MSI build failed" }

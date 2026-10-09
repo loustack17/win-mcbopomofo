@@ -20,6 +20,13 @@ jobs:
       - name: Configure CMake
         run: cmake -B build -S . -A x64
 
+      - name: Read release version
+        id: version
+        shell: pwsh
+        run: |
+          $metadata = Get-Content build/generated/version.json -Raw | ConvertFrom-Json
+          "version=$($metadata.version)" >> $env:GITHUB_OUTPUT
+
       - name: Build
         run: cmake --build build --config Debug
 
@@ -52,8 +59,6 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: Win-McBopomofo-Release
-          path: |
-            dist/Win-McBopomofo-Installer.msi
-            # build/bin/Release/*.exe
-            # build/bin/Release/*.dll
+          name: Win-McBopomofo-${{ steps.version.outputs.version }}
+          path: dist/Win-McBopomofo-${{ steps.version.outputs.version }}-Installer.msi
+          if-no-files-found: error
