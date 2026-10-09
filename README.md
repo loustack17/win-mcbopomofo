@@ -1,5 +1,6 @@
 # 小麥注音 Windows 維護版
 
+[![目前版本](https://img.shields.io/github/v/release/loustack17/win-mcbopomofo?include_prereleases&label=%E7%89%88%E6%9C%AC)](https://github.com/loustack17/win-mcbopomofo/releases)
 [![建置與發行](https://github.com/loustack17/win-mcbopomofo/actions/workflows/fork-ci.yml/badge.svg?branch=master)](https://github.com/loustack17/win-mcbopomofo/actions/workflows/fork-ci.yml)
 
 這個專案來自 [OpenVanilla 的 Windows 版小麥注音](https://github.com/openvanilla/win-mcbopomofo)。原始開發與 Windows 移植都是上游作者和貢獻者的成果，作者與版權標示也都保留。
@@ -21,7 +22,7 @@
 
 推送到 `master`，或提出以 `master` 為目標的合併請求，都會自動建置、測試並產生安裝檔。
 
-要發布版本，在自動建置頁選擇手動執行，分支選 `master`，並勾選 `publish_release`。流程通過後會建立版本標籤、發布版本並附上安裝檔。測試版會標示為預先發行版本，已使用的版本標籤不會覆寫。
+要發布版本，在自動建置頁選擇手動執行，分支選 `master`，並勾選 `publish_release`。流程通過後會建立版本標籤、發布版本並附上安裝檔。測試階段由版號中的 `beta` 或 `rc` 標示，發行名稱只使用完整版號。GitHub 以一般發行版顯示，讓首頁右側看得到版本號。已使用的版本標籤不會覆寫。
 
 版號統一由 `Version.cmake` 管理。修改後要發布新的程式檔案時，必須使用新的版號；詳細規則見[版本管理](docs/version-metadata.md)。
 

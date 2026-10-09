@@ -52,7 +52,11 @@ flag. UpgradeCode and component GUIDs remain stable.
 7. Push to `master` to publish a versioned Actions artifact. To publish a GitHub
    Release, run `Fork Build and Release` on `master` with `publish_release` enabled.
    The workflow creates `v` followed by the full semantic version at the exact
-   validated commit, attaches the MSI, and marks beta/rc versions as prereleases.
+   validated commit and attaches the MSI. Beta/rc versions retain their semantic
+   prerelease identifiers. Release titles contain only the full semantic version,
+   with no translated labels or other suffixes. GitHub releases
+   use the normal release status and latest flag so the repository sidebar shows
+   the version; this does not change the semantic version or PE prerelease flags.
    Existing tags are rejected rather than reused or overwritten.
 
 `master` is this fork's default development and release branch. `main` remains

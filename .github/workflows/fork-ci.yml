@@ -99,7 +99,6 @@ jobs:
             throw 'Release tag does not match the validated commit'
           }
           $releaseArgs = @('release', 'create', $tag, $installer, '--repo', $env:GITHUB_REPOSITORY,
-            '--verify-tag', '--title', $version, '--generate-notes')
-          if ($version.Contains('-')) { $releaseArgs += '--prerelease' }
+            '--verify-tag', '--title', $version, '--generate-notes', '--latest')
           gh @releaseArgs
           if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed' }
