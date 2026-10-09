@@ -83,6 +83,11 @@ target_include_directories(IpcTest PRIVATE ${CMAKE_SOURCE_DIR}/src/Common ${CMAK
 target_link_libraries(IpcTest PRIVATE Common gtest_main)
 add_test(NAME IpcTest COMMAND IpcTest)
 
+add_executable(ShiftKeyStateTest tests/ShiftKeyStateTest.cpp)
+target_include_directories(ShiftKeyStateTest PRIVATE ${CMAKE_SOURCE_DIR}/src/Client)
+target_link_libraries(ShiftKeyStateTest PRIVATE gtest_main)
+add_test(NAME ShiftKeyStateTest COMMAND ShiftKeyStateTest)
+
 add_executable(ConfigControlStateTest
     tests/ConfigControlStateTest.cpp
     src/ConfigApp/ControlState.cpp)

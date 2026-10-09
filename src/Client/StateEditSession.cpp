@@ -31,6 +31,12 @@
 
 namespace {
 
+HRESULT TraceEditResult(const char* stage, HRESULT result) {
+  LogDiagnostic("edit stage=%s result=0x%08X", stage,
+                static_cast<unsigned int>(result));
+  return result;
+}
+
 HWND GetContextWindow(ITfContext* context);
 
 void LogContextWindowInfo(const char* prefix, ITfContext* context) {
@@ -92,6 +98,9 @@ void SetDisplayAttribute(TfEditCookie ec, ITfContext* pContext,
 }
 
 STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
+  LogDiagnostic("edit begin commitLength=%zu composingLength=%zu composition=%d",
+                state_.commitString.size(), state_.composingBuffer.size(),
+                pTIP_->GetComposition() != nullptr);
   std::wstring commitStr = McBopomofo::Utf8ToUtf16(state_.commitString);
   std::wstring compStr = McBopomofo::Utf8ToUtf16(state_.composingBuffer);
   const bool directCommitWithoutComposition =
@@ -102,8 +111,10 @@ STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
   if (!commitStr.empty()) {
     if (pTIP_->GetComposition()) {
       ITfRange* pRange = nullptr;
-      if (SUCCEEDED(pTIP_->GetComposition()->GetRange(&pRange))) {
-        pRange->SetText(ec, 0, commitStr.c_str(), (LONG)commitStr.length());
+      if (SUCCEEDED(TraceEditResult("commit-range",
+                                   pTIP_->GetComposition()->GetRange(&pRange)))) {
+        TraceEditResult("commit-text", pRange->SetText(
+            ec, 0, commitStr.c_str(), (LONG)commitStr.length()));
 
         // Clear display attributes when committing
         ITfProperty* pProp = nullptr;
@@ -119,7 +130,7 @@ STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
         sel.style.fInterimChar = FALSE;
         pContext_->SetSelection(ec, 1, &sel);
 
-        pTIP_->GetComposition()->EndComposition(ec);
+        TraceEditResult("commit-end", pTIP_->GetComposition()->EndComposition(ec));
         pTIP_->GetComposition()->Release();
         pTIP_->SetComposition(nullptr);
         pRange->Release();
@@ -137,26 +148,28 @@ STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
       // 4. Move cursor to the end of inserted text
       // 5. End the composition to commit all changes atomically
       ITfInsertAtSelection* pInsert = nullptr;
-      if (SUCCEEDED(pContext_->QueryInterface(IID_ITfInsertAtSelection,
-                                              (void**)&pInsert))) {
+      if (SUCCEEDED(TraceEditResult("insert-interface",
+          pContext_->QueryInterface(IID_ITfInsertAtSelection, (void**)&pInsert)))) {
         ITfRange* pRange = nullptr;
         // First, query the selection position without modifying anything
         // (TF_IAS_QUERYONLY flag)
-        if (SUCCEEDED(pInsert->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, NULL,
-                                                     0, &pRange)) &&
+        if (SUCCEEDED(TraceEditResult("insert-range",
+                pInsert->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, NULL,
+                                              0, &pRange))) &&
             pRange) {
           // Now we have a valid range at the current selection
           // Create a composition at this position
           ITfContextComposition* pContextComp = nullptr;
-          if (SUCCEEDED(pContext_->QueryInterface(IID_ITfContextComposition,
-                                                  (void**)&pContextComp))) {
+          if (SUCCEEDED(TraceEditResult("composition-interface",
+              pContext_->QueryInterface(IID_ITfContextComposition,
+                                       (void**)&pContextComp)))) {
             ITfComposition* pComp = nullptr;
-            if (SUCCEEDED(pContextComp->StartComposition(ec, pRange, pTIP_,
-                                                         &pComp)) &&
+            if (SUCCEEDED(TraceEditResult("insert-start",
+                pContextComp->StartComposition(ec, pRange, pTIP_, &pComp))) &&
                 pComp) {
               // Insert text into the composition range
-              pRange->SetText(ec, 0, commitStr.c_str(),
-                              (LONG)commitStr.length());
+              TraceEditResult("insert-text", pRange->SetText(
+                  ec, 0, commitStr.c_str(), (LONG)commitStr.length()));
 
               // Move cursor to the end of inserted text
               pRange->Collapse(ec, TF_ANCHOR_END);
@@ -164,10 +177,10 @@ STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
               sel.range = pRange;
               sel.style.ase = TF_AE_NONE;
               sel.style.fInterimChar = FALSE;
-              pContext_->SetSelection(ec, 1, &sel);
+              TraceEditResult("insert-selection", pContext_->SetSelection(ec, 1, &sel));
 
               // Immediately end the composition to commit all changes
-              pComp->EndComposition(ec);
+              TraceEditResult("insert-end", pComp->EndComposition(ec));
               pComp->Release();
             }
             pContextComp->Release();
@@ -232,7 +245,8 @@ STDAPI CStateEditSession::DoEditSession(TfEditCookie ec) {
     }
 
     if (pRange && pTIP_->GetComposition()) {
-      pRange->SetText(ec, 0, compStr.c_str(), (LONG)compStr.length());
+      TraceEditResult("composing-text", pRange->SetText(
+          ec, 0, compStr.c_str(), (LONG)compStr.length()));
 
       // Apply Display Attributes
       ITfCategoryMgr* pCategoryMgr = nullptr;

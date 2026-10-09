@@ -26,6 +26,7 @@
 #include <windows.h>
 
 #include "Ipc.h"
+#include "ShiftKeyState.h"
 #include "TsfUiElement.h"
 
 class McBopomofoTIP : public ITfTextInputProcessorEx,
@@ -136,7 +137,9 @@ class McBopomofoTIP : public ITfTextInputProcessorEx,
   // Settings menu button that appears in the legacy Windows Language Bar.
   class CLangBarButton* pSettingsButton_;
 
-  bool shiftToggleKeyPending_ = false;
+  McBopomofo::TSF::ShiftKeyState shiftKeyState_;
+  mutable ULONGLONG shiftSettingsRefreshTick_ = 0;
+  mutable bool shiftToggleEnabled_ = true;
   bool processDisabled_ = false;
 
  public:

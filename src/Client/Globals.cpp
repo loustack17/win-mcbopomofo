@@ -37,6 +37,114 @@
 
 namespace {
 
+constexpr ULONGLONG kDiagnosticLogMaxBytes = 1024 * 1024;
+constexpr ULONGLONG kDiagnosticSettingRefreshMs = 1000;
+
+bool IsDiagnosticLoggingEnabled() {
+  struct Cache {
+    ULONGLONG checkedAt = 0;
+    bool enabled = false;
+    bool initialized = false;
+  };
+  static thread_local Cache cache;
+
+  ULONGLONG now = GetTickCount64();
+  if (cache.initialized && now - cache.checkedAt < kDiagnosticSettingRefreshMs) {
+    return cache.enabled;
+  }
+
+  wchar_t appDataPath[MAX_PATH] = {};
+  DWORD length = GetEnvironmentVariableW(L"APPDATA", appDataPath, MAX_PATH);
+  if (length == 0 || length >= MAX_PATH) {
+    cache.checkedAt = now;
+    cache.enabled = false;
+    cache.initialized = true;
+    return false;
+  }
+
+  std::wstring settingsPath(appDataPath);
+  settingsPath += L"\\WinMcBopomofo\\mcbopomofo.ini";
+  cache.checkedAt = now;
+  cache.enabled = GetPrivateProfileIntW(L"Server", L"LoggingEnabled", 0,
+                                        settingsPath.c_str()) != 0;
+  cache.initialized = true;
+  return cache.enabled;
+}
+
+std::wstring DiagnosticLogPath() {
+  wchar_t tempPath[MAX_PATH] = {};
+  DWORD length = GetTempPathW(MAX_PATH, tempPath);
+  if (length == 0 || length >= MAX_PATH) {
+    return {};
+  }
+
+  std::wstring path(tempPath);
+  path += L"mcbopomofo_tip_diagnostics.log";
+  return path;
+}
+
+bool RotateDiagnosticLogIfNeeded(const std::wstring& path,
+                                 DWORD incomingBytes) {
+  WIN32_FILE_ATTRIBUTE_DATA attributes = {};
+  if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &attributes)) {
+    return GetLastError() == ERROR_FILE_NOT_FOUND ||
+           GetLastError() == ERROR_PATH_NOT_FOUND;
+  }
+
+  ULARGE_INTEGER fileSize = {};
+  fileSize.HighPart = attributes.nFileSizeHigh;
+  fileSize.LowPart = attributes.nFileSizeLow;
+  if (fileSize.QuadPart + incomingBytes <= kDiagnosticLogMaxBytes) {
+    return true;
+  }
+
+  std::wstring backupPath = path + L".1";
+  return MoveFileExW(path.c_str(), backupPath.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+}
+
+void AppendDiagnosticLine(const char* line, DWORD length) {
+  std::wstring path = DiagnosticLogPath();
+  if (path.empty()) {
+    return;
+  }
+
+  HANDLE mutex = CreateMutexW(nullptr, FALSE,
+                              L"Local\\WinMcBopomofoTipDiagnosticsLog");
+  if (!mutex) {
+    return;
+  }
+
+  DWORD waitResult = WaitForSingleObject(mutex, 0);
+  if (waitResult != WAIT_OBJECT_0 && waitResult != WAIT_ABANDONED) {
+    CloseHandle(mutex);
+    return;
+  }
+
+  if (RotateDiagnosticLogIfNeeded(path, length)) {
+    HANDLE file = CreateFileW(
+        path.c_str(), FILE_APPEND_DATA,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file != INVALID_HANDLE_VALUE) {
+      DWORD totalBytesWritten = 0;
+      while (totalBytesWritten < length) {
+        DWORD bytesWritten = 0;
+        if (!WriteFile(file, line + totalBytesWritten,
+                       length - totalBytesWritten, &bytesWritten, nullptr) ||
+            bytesWritten == 0) {
+          break;
+        }
+        totalBytesWritten += bytesWritten;
+      }
+      CloseHandle(file);
+    }
+  }
+
+  ReleaseMutex(mutex);
+  CloseHandle(mutex);
+}
+
 #ifndef NDEBUG
 
 thread_local bool g_isRelayingClientLog = false;
@@ -159,6 +267,45 @@ void LogMessageFileOnly(const char* format, ...) {
 #else
   (void)format;
 #endif
+}
+
+void LogDiagnostic(const char* format, ...) {
+  if (!format || !IsDiagnosticLoggingEnabled()) {
+    return;
+  }
+
+  char message[1024] = {};
+  va_list args;
+  va_start(args, format);
+  int messageLength = vsnprintf(message, sizeof(message), format, args);
+  va_end(args);
+  if (messageLength < 0) {
+    return;
+  }
+  if (static_cast<size_t>(messageLength) >= sizeof(message)) {
+    constexpr char kTruncated[] = "...";
+    memcpy(message + sizeof(message) - sizeof(kTruncated), kTruncated,
+           sizeof(kTruncated));
+  }
+
+  size_t safeLength = strlen(message);
+  for (size_t i = 0; i < safeLength; ++i) {
+    if (message[i] == '\r' || message[i] == '\n') {
+      message[i] = ' ';
+    }
+  }
+
+  char line[1152] = {};
+  int lineLength = snprintf(line, sizeof(line), "[%lu][%llu] %s\r\n",
+                            GetCurrentProcessId(),
+                            static_cast<unsigned long long>(GetTickCount64()),
+                            message);
+  if (lineLength <= 0 || static_cast<size_t>(lineLength) >= sizeof(line)) {
+    return;
+  }
+
+  size_t bytesToWrite = static_cast<size_t>(lineLength);
+  AppendDiagnosticLine(line, static_cast<DWORD>(bytesToWrite));
 }
 
 float GetDpiScaleForWindow(HWND hwnd) {

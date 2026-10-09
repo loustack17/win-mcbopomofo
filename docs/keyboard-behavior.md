@@ -57,6 +57,30 @@ punctuation selection retains the original composition behavior so alternatives
 can still be selected. Plain Bopomofo mode and the punctuation menu retain their
 existing candidate selection behavior.
 
+## TSF Key Routing and Diagnostics
+
+With `ShiftToggleOpenClose` enabled, a standalone Shift press and release is
+claimed consistently by both the TSF test callbacks and the actual callbacks,
+including while the input method is closed. Shift combined with another key
+cancels the pending toggle. Focus changes also cancel it. The setting is cached
+for up to one second to avoid querying the server on every callback.
+
+With no composition or candidates, Space is passed through at the TSF test
+callback, so the host can process its original key event.
+
+When `[Server] LoggingEnabled=1` in `mcbopomofo.ini`, Release builds also write
+`%TEMP%\mcbopomofo_tip_diagnostics.log`. It contains process IDs, timing, key
+categories, context addresses, text lengths, and TSF result codes, without typed
+text. The file rotates at 1 MiB with one backup. Busy writes are dropped rather
+than waiting. Changes to the logging setting take effect within one second.
+Logging is disabled by default; enabled logging performs local file I/O during
+input processing and is intended for short diagnostic sessions.
+
+Automated tests verify the Shift state transitions and server punctuation rules.
+They do not verify TSF event delivery in LINE or WezTerm; those hosts require
+testing with the installed build and comparing their diagnostic events with
+Windows Terminal.
+
 ## Space Bar in Candidate Mode
 
 Implementation is located in `HandleCandidateKey()` of `src/Server/InputController.cpp`.

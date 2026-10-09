@@ -218,10 +218,33 @@ bool IsAltPressed(const BYTE keyboardState[256]) {
          IsVirtualKeyDown(VK_LMENU) || IsVirtualKeyDown(VK_RMENU);
 }
 
-bool IsOnlyShiftKeyEvent(WPARAM wParam, const BYTE keyboardState[256]) {
-  return IsShiftKey(wParam) && !IsCtrlPressed(keyboardState) &&
-         !IsAltPressed(keyboardState);
+const char* DiagnosticKeyCategory(WPARAM key) {
+  if (IsShiftKey(key)) return "shift";
+  if (key == VK_SPACE) return "space";
+  if (key >= 'A' && key <= 'Z') return "letter";
+  if (key >= '0' && key <= '9') return "digit";
+  if ((key >= VK_OEM_1 && key <= VK_OEM_3) ||
+      (key >= VK_OEM_4 && key <= VK_OEM_8)) return "punctuation";
+  return "other";
 }
+
+class KeyEventDiagnostic {
+ public:
+  KeyEventDiagnostic(const char* event, WPARAM key, ITfContext* context,
+                     const BOOL* eaten)
+      : event_(event), category_(DiagnosticKeyCategory(key)), eaten_(eaten) {
+    LogDiagnostic("%s begin category=%s context=%p", event_, category_, context);
+  }
+
+  ~KeyEventDiagnostic() {
+    LogDiagnostic("%s end category=%s eaten=%d", event_, category_, *eaten_);
+  }
+
+ private:
+  const char* event_;
+  const char* category_;
+  const BOOL* eaten_;
+};
 
 bool GetFocusedContext(ITfThreadMgr* threadMgr, ITfContext** context) {
   if (!threadMgr || !context) {
@@ -679,7 +702,7 @@ STDAPI McBopomofoTIP::Deactivate() {
 }
 
 STDAPI McBopomofoTIP::OnSetFocus(BOOL fForeground) {
-  shiftToggleKeyPending_ = false;
+  shiftKeyState_.reset();
   if (isProcessDisabled_()) {
     return S_OK;
   }
@@ -691,18 +714,28 @@ STDAPI McBopomofoTIP::OnSetFocus(BOOL fForeground) {
 
 STDAPI McBopomofoTIP::OnTestKeyDown(ITfContext* pic, WPARAM wParam,
                                     LPARAM lParam, BOOL* pfEaten) {
-  UNREFERENCED_PARAMETER(pic);
   UNREFERENCED_PARAMETER(lParam);
   if (pfEaten == nullptr) {
     return E_INVALIDARG;
   }
+  *pfEaten = FALSE;
+  KeyEventDiagnostic diagnostic("test-down", wParam, pic, pfEaten);
   if (isProcessDisabled_()) {
+    shiftKeyState_.reset();
     *pfEaten = FALSE;
     return S_OK;
   }
 
   BYTE keyboardState[256];
   GetKeyboardState(keyboardState);
+
+  const bool shiftKey = IsShiftKey(wParam);
+  if (shiftKeyState_.testKeyDown(
+          shiftKey, IsCtrlPressed(keyboardState) || IsAltPressed(keyboardState),
+          shiftKey && shouldToggleOpenCloseWithShift_())) {
+    *pfEaten = TRUE;
+    return S_OK;
+  }
 
   if (!IsOpen()) {
     *pfEaten = FALSE;
@@ -723,7 +756,7 @@ STDAPI McBopomofoTIP::OnTestKeyDown(ITfContext* pic, WPARAM wParam,
 
   // If the composition buffer is empty, do not swallow control or editing
   // keys, allowing them to pass through to the host application safely.
-  if (IsHostEditingKey(wParam)) {
+  if (IsHostEditingKey(wParam) || wParam == VK_SPACE) {
     *pfEaten = FALSE;
     return S_OK;
   }
@@ -752,6 +785,8 @@ STDAPI McBopomofoTIP::OnKeyDown(ITfContext* pic, WPARAM wParam, LPARAM lParam,
   if (pfEaten == nullptr) {
     return E_INVALIDARG;
   }
+  *pfEaten = FALSE;
+  KeyEventDiagnostic diagnostic("key-down", wParam, pic, pfEaten);
   if (isProcessDisabled_()) {
     *pfEaten = FALSE;
     return S_OK;
@@ -761,7 +796,7 @@ STDAPI McBopomofoTIP::OnKeyDown(ITfContext* pic, WPARAM wParam, LPARAM lParam,
   GetKeyboardState(keyboardState);
 
   if (handleStandaloneShiftKeyDown_(wParam, keyboardState)) {
-    *pfEaten = FALSE;
+    *pfEaten = TRUE;
     return S_OK;
   }
 
@@ -813,6 +848,9 @@ STDAPI McBopomofoTIP::OnKeyDown(ITfContext* pic, WPARAM wParam, LPARAM lParam,
     // LogMessage("Received IPC response: %s", response.c_str());
     if (McBopomofo::IPC::DeserializeStateUpdate(response, lastState_)) {
       const bool hasCommit = !lastState_.commitString.empty();
+      LogDiagnostic("state consumed=%d commitLength=%zu composingLength=%zu asciiAvailable=%d",
+                    lastState_.consumed, lastState_.commitString.size(),
+                    lastState_.composingBuffer.size(), req.ascii != 0);
       *pfEaten = (lastState_.consumed || hasCommit) ? TRUE : FALSE;
       // LogMessage(
       //     "State deserialized. Consumed: %d, CommitStr: '%s', CompStr: '%s'",
@@ -823,10 +861,12 @@ STDAPI McBopomofoTIP::OnKeyDown(ITfContext* pic, WPARAM wParam, LPARAM lParam,
         applyStateToContext_(pic, lastState_, "");
       }
     } else {
+      LogDiagnostic("key-down IPC response invalid");
       // LogMessage("Failed to deserialize state update");
       *pfEaten = FALSE;
     }
   } else {
+    LogDiagnostic("key-down IPC request failed");
     // LogMessage("IPC Call failed");
     *pfEaten = FALSE;
   }
@@ -836,25 +876,38 @@ STDAPI McBopomofoTIP::OnKeyDown(ITfContext* pic, WPARAM wParam, LPARAM lParam,
 
 STDAPI McBopomofoTIP::OnTestKeyUp(ITfContext* pic, WPARAM wParam, LPARAM lParam,
                                   BOOL* pfEaten) {
-  UNREFERENCED_PARAMETER(pic);
-  UNREFERENCED_PARAMETER(wParam);
   UNREFERENCED_PARAMETER(lParam);
   if (pfEaten == nullptr) {
     return E_INVALIDARG;
   }
   *pfEaten = FALSE;
+  KeyEventDiagnostic diagnostic("test-up", wParam, pic, pfEaten);
+  if (isProcessDisabled_()) {
+    shiftKeyState_.reset();
+    return S_OK;
+  }
+  BYTE keyboardState[256];
+  GetKeyboardState(keyboardState);
+  const bool shiftKey = IsShiftKey(wParam);
+  *pfEaten = shiftKeyState_.testKeyUp(
+                 shiftKey,
+                 IsCtrlPressed(keyboardState) || IsAltPressed(keyboardState),
+                 shiftKey && shouldToggleOpenCloseWithShift_())
+                 ? TRUE
+                 : FALSE;
   return S_OK;
 }
 
 STDAPI McBopomofoTIP::OnKeyUp(ITfContext* pic, WPARAM wParam, LPARAM lParam,
                               BOOL* pfEaten) {
-  UNREFERENCED_PARAMETER(pic);
   UNREFERENCED_PARAMETER(lParam);
   if (pfEaten == nullptr) {
     return E_INVALIDARG;
   }
+  *pfEaten = FALSE;
+  KeyEventDiagnostic diagnostic("key-up", wParam, pic, pfEaten);
   if (isProcessDisabled_()) {
-    shiftToggleKeyPending_ = false;
+    shiftKeyState_.reset();
     *pfEaten = FALSE;
     return S_OK;
   }
@@ -958,7 +1011,7 @@ STDAPI McBopomofoTIP::OnUninitDocumentMgr(ITfDocumentMgr* pDocMgr) {
 STDAPI McBopomofoTIP::OnSetFocus(ITfDocumentMgr* pDocMgrFocus,
                                  ITfDocumentMgr* pDocMgrPrevFocus) {
   UNREFERENCED_PARAMETER(pDocMgrPrevFocus);
-  shiftToggleKeyPending_ = false;
+  shiftKeyState_.reset();
   if (pDocMgrFocus == nullptr) {
     resetServerState_();
   }
@@ -976,12 +1029,12 @@ STDAPI McBopomofoTIP::OnPopContext(ITfContext* pic) {
 }
 
 STDAPI McBopomofoTIP::OnSetThreadFocus() {
-  shiftToggleKeyPending_ = false;
+  shiftKeyState_.reset();
   return S_OK;
 }
 
 STDAPI McBopomofoTIP::OnKillThreadFocus() {
-  shiftToggleKeyPending_ = false;
+  shiftKeyState_.reset();
   resetServerState_();
   return S_OK;
 }
@@ -1006,8 +1059,12 @@ void McBopomofoTIP::applyStateToContext_(
 
   CStateEditSession* pEditSession = new CStateEditSession(context, this, state);
   HRESULT hr = E_FAIL;
-  context->RequestEditSession(tid_, pEditSession, TF_ES_SYNC | TF_ES_READWRITE,
-                              &hr);
+  HRESULT requestResult = context->RequestEditSession(
+      tid_, pEditSession, TF_ES_SYNC | TF_ES_READWRITE, &hr);
+  LogDiagnostic("edit-request request=0x%08X session=0x%08X commitLength=%zu composingLength=%zu",
+                static_cast<unsigned int>(requestResult),
+                static_cast<unsigned int>(hr), state.commitString.size(),
+                state.composingBuffer.size());
   // LogMessage("%sRequestEditSession returned: 0x%08X", logPrefix, hr);
   pEditSession->Release();
 }
@@ -1083,40 +1140,44 @@ void McBopomofoTIP::updateProcessDisabledState_() {
 }
 
 bool McBopomofoTIP::shouldToggleOpenCloseWithShift_() const {
+  const ULONGLONG now = GetTickCount64();
+  if (shiftSettingsRefreshTick_ != 0 &&
+      now - shiftSettingsRefreshTick_ < 1000) {
+    return shiftToggleEnabled_;
+  }
+  shiftSettingsRefreshTick_ = now;
   McBopomofo::IPC::NamedPipeClient pipe(McBopomofo::IPC::PIPE_NAME);
   std::string response;
   if (!pipe.Call(McBopomofo::IPC::SerializeGetSettings(), response)) {
     // LogMessage("GET_SETTINGS IPC Call failed, fallback to enabled");
-    return true;
+    return shiftToggleEnabled_;
   }
 
   McBopomofo::IPC::ClientSettingsPayload payload;
   if (!McBopomofo::IPC::DeserializeClientSettings(response, payload)) {
     // LogMessage("GET_SETTINGS response deserialize failed, fallback to
     // enabled");
-    return true;
+    return shiftToggleEnabled_;
   }
 
-  return payload.shiftToggleOpenClose;
+  shiftToggleEnabled_ = payload.shiftToggleOpenClose;
+  return shiftToggleEnabled_;
 }
 
 bool McBopomofoTIP::handleStandaloneShiftKeyDown_(
     WPARAM wParam, const BYTE keyboardState[256]) {
-  if (IsOnlyShiftKeyEvent(wParam, keyboardState)) {
-    shiftToggleKeyPending_ = true;
-    return true;
-  }
-
-  shiftToggleKeyPending_ = false;
-  return false;
+  const bool shiftKey = IsShiftKey(wParam);
+  return shiftKeyState_.keyDown(
+      shiftKey, IsCtrlPressed(keyboardState) || IsAltPressed(keyboardState),
+      shiftKey && shouldToggleOpenCloseWithShift_());
 }
 
 bool McBopomofoTIP::handleStandaloneShiftKeyUp_(WPARAM wParam,
                                                 const BYTE keyboardState[256]) {
-  const bool shouldToggle = IsOnlyShiftKeyEvent(wParam, keyboardState) &&
-                            shiftToggleKeyPending_ &&
-                            shouldToggleOpenCloseWithShift_();
-  shiftToggleKeyPending_ = false;
+  const bool shiftKey = IsShiftKey(wParam);
+  const bool shouldToggle = shiftKeyState_.keyUp(
+      shiftKey, IsCtrlPressed(keyboardState) || IsAltPressed(keyboardState),
+      shiftKey && shouldToggleOpenCloseWithShift_());
   if (!shouldToggle) {
     return false;
   }
@@ -1141,7 +1202,10 @@ void McBopomofoTIP::ToggleOpenClose() {
         VARIANT var;
         var.vt = VT_I4;
         var.lVal = currentOpen ? 0 : 1;
-        pComp->SetValue(tid_, &var);
+        HRESULT result = pComp->SetValue(tid_, &var);
+        LogDiagnostic("toggle openBefore=%d requestedOpen=%ld result=0x%08X openAfter=%d",
+                      currentOpen, var.lVal, static_cast<unsigned int>(result),
+                      IsOpen());
         pComp->Release();
 
         // LogMessage("Compartment value set to: %d", var.lVal);
