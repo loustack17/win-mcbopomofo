@@ -245,7 +245,7 @@ std::optional<std::string> br2t_HandleLettersState(StringCursor& cursor,
   bool isUppercase = false;
   size_t consumed = 1;
   std::string prefix = (type == BrailleType::ASCII) ? "," : "⠠";
-  if (substring == prefix) {
+  if (substring == prefix && cursor.remaining() > 1) {
     isUppercase = true;
     substring = cursor.peek(1);
     consumed = 2;
