@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-beta.5
+
+- Route uppercase ASCII letters to configured English letter output before phonetic reading recognition, including Hanyu Pinyin.
+- Cover all six supported keyboard layouts with 624 Shift-letter combinations and ordinary Chinese input checks.
+
 ## 1.0.0-beta.4
 
 - Normalize Shift-modified uppercase ASCII letters at the Windows key bridge so the engine applies the configured letter case.

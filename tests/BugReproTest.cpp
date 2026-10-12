@@ -486,9 +486,33 @@ class ShiftLetterTest : public DirectPunctuationTest {
   }
 };
 
-TEST_F(ShiftLetterTest, UppercaseSettingCommitsAllLettersFromEmptyHsuState) {
-  controller->setKeyboardLayout(
-      Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout());
+class ShiftLetterLayoutTest
+    : public ShiftLetterTest,
+      public ::testing::WithParamInterface<
+          const Formosa::Mandarin::BopomofoKeyboardLayout*> {
+ protected:
+  void SetUp() override {
+    ShiftLetterTest::SetUp();
+    controller->setKeyboardLayout(GetParam());
+  }
+
+  void composeChineseForLayout() {
+    using Formosa::Mandarin::BopomofoKeyboardLayout;
+    using Formosa::Mandarin::BopomofoSyllable;
+    const std::string keys =
+        GetParam() == BopomofoKeyboardLayout::HanyuPinyinLayout()
+            ? "ni3"
+            : GetParam()->keySequenceFromSyllable(
+                  BopomofoSyllable::FromComposedString("ㄋㄧˇ"));
+    ASSERT_FALSE(keys.empty());
+    for (char key : keys) {
+      ASSERT_TRUE(controller->handleKey(Key::asciiKey(key)));
+    }
+    ASSERT_EQ(ui->lastState.composingBuffer, "你");
+  }
+};
+
+TEST_P(ShiftLetterLayoutTest, UppercaseSettingCommitsAllLettersFromEmptyState) {
   controller->setPutLowercaseLettersToComposingBuffer(false);
   for (char letter = 'A'; letter <= 'Z'; ++letter) {
     SCOPED_TRACE(letter);
@@ -498,9 +522,7 @@ TEST_F(ShiftLetterTest, UppercaseSettingCommitsAllLettersFromEmptyHsuState) {
   }
 }
 
-TEST_F(ShiftLetterTest, LowercaseSettingCommitsAllLettersFromEmptyHsuState) {
-  controller->setKeyboardLayout(
-      Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout());
+TEST_P(ShiftLetterLayoutTest, LowercaseSettingCommitsAllLettersFromEmptyState) {
   controller->setPutLowercaseLettersToComposingBuffer(true);
   for (char letter = 'A'; letter <= 'Z'; ++letter) {
     SCOPED_TRACE(letter);
@@ -511,19 +533,50 @@ TEST_F(ShiftLetterTest, LowercaseSettingCommitsAllLettersFromEmptyHsuState) {
   }
 }
 
-TEST_F(ShiftLetterTest, UppercaseSettingCommitsPendingChineseWithLetter) {
-  composeChinese();
+TEST_P(ShiftLetterLayoutTest, UppercaseSettingCommitsPendingChineseWithAllLetters) {
   controller->setPutLowercaseLettersToComposingBuffer(false);
-  EXPECT_TRUE(controller->handleKey(shiftedLetter('A')));
-  EXPECT_EQ(ui->committedString, "你A");
+  for (char letter = 'A'; letter <= 'Z'; ++letter) {
+    SCOPED_TRACE(letter);
+    ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+    ASSERT_TRUE(controller->handleKey(shiftedLetter(letter)));
+    EXPECT_EQ(ui->committedString, "你" + std::string(1, letter));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
 }
 
-TEST_F(ShiftLetterTest, LowercaseSettingCommitsPendingChineseWithLetter) {
-  composeChinese();
+TEST_P(ShiftLetterLayoutTest, LowercaseSettingCommitsPendingChineseWithAllLetters) {
   controller->setPutLowercaseLettersToComposingBuffer(true);
-  EXPECT_TRUE(controller->handleKey(shiftedLetter('A')));
-  EXPECT_EQ(ui->committedString, "你a");
+  for (char letter = 'A'; letter <= 'Z'; ++letter) {
+    SCOPED_TRACE(letter);
+    ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+    ASSERT_TRUE(controller->handleKey(shiftedLetter(letter)));
+    EXPECT_EQ(ui->committedString,
+              "你" + std::string(1, static_cast<char>(letter + 'a' - 'A')));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
 }
+
+TEST_P(ShiftLetterLayoutTest, OrdinaryChineseInputStillCommits) {
+  ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+  IPC::KeyEventPayload payload{};
+  payload.vk = VK_RETURN;
+  ASSERT_TRUE(controller->handleKey(mapIpcKey(payload)));
+  EXPECT_EQ(ui->committedString, "你");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AllLayouts, ShiftLetterLayoutTest,
+    ::testing::Values(
+        Formosa::Mandarin::BopomofoKeyboardLayout::StandardLayout(),
+        Formosa::Mandarin::BopomofoKeyboardLayout::ETenLayout(),
+        Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout(),
+        Formosa::Mandarin::BopomofoKeyboardLayout::ETen26Layout(),
+        Formosa::Mandarin::BopomofoKeyboardLayout::IBMLayout(),
+        Formosa::Mandarin::BopomofoKeyboardLayout::HanyuPinyinLayout()),
+    [](const ::testing::TestParamInfo<
+        const Formosa::Mandarin::BopomofoKeyboardLayout*>& info) {
+      return info.param->name();
+    });
 
 TEST_F(ShiftLetterTest, BridgePreservesShiftForShortcutsAndCandidateSelection) {
   const unsigned shortcutKeys[] = {VK_SPACE, VK_RETURN, VK_TAB,

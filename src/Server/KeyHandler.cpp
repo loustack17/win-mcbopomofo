@@ -145,10 +145,11 @@ bool KeyHandler::handle(Key key, McBopomofo::InputState* state,
   char simpleAscii =
       (key.ctrlPressed || key.shiftPressed || key.isFromNumberPad) ? '\0'
                                                                    : key.ascii;
+  const bool uppercaseLetter = simpleAscii >= 'A' && simpleAscii <= 'Z';
 
   // See if it's valid BPMF reading.
   bool keyConsumedByReading = false;
-  if (reading_.isValidKey(simpleAscii)) {
+  if (!uppercaseLetter && reading_.isValidKey(simpleAscii)) {
     reading_.combineKey(simpleAscii);
     keyConsumedByReading = true;
     // If asciiChar does not lead to a tone marker, we are done. Tone marker
@@ -530,7 +531,7 @@ bool KeyHandler::handle(Key key, McBopomofo::InputState* state,
     }
 
     // Upper case letters.
-    if (simpleAscii >= 'A' && simpleAscii <= 'Z') {
+    if (uppercaseLetter) {
       unigram = std::string(kLetterPrefix) + chrStr;
       if (putLowercaseLettersToComposingBuffer_) {
         // Ignore return value, since we always return true below.

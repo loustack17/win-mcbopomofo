@@ -99,6 +99,10 @@ then applies the configured uppercase/lowercase behavior. Standalone uppercase
 letters are committed through the normal server/TSF path instead of relying on
 the host to replay a declined event. Lowercase mode retains the language-model
 letter mappings and existing composition/candidate behavior.
+Uppercase letters bypass phonetic reading recognition, including the
+case-insensitive Hanyu Pinyin reader. Regression tests cover all six supported
+layouts with both case settings, empty and composed-Chinese states, and ordinary
+Chinese input. Actual TIP and host delivery still require installed-build tests.
 
 Shift release is additionally registered as a TSF preserved key following the
 Microsoft SampleIME pattern. Preserved and ordinary release callbacks share the
