@@ -46,11 +46,11 @@ option(SKIP_OPENCC_DICT "Skip OpenCC dictionary building (useful for cross-compi
 
 add_subdirectory(third_party/OpenCC EXCLUDE_FROM_ALL)
 
+set(BUILD_TESTING ON CACHE BOOL "Enable project tests" FORCE)
+enable_testing()
 add_subdirectory(src)
 
 # Add tests
-set(BUILD_TESTING ON CACHE BOOL "Enable project tests" FORCE)
-enable_testing()
 add_test(NAME VersionMetadataTest COMMAND ${CMAKE_COMMAND}
     -DVERSION_GENERATOR=${CMAKE_SOURCE_DIR}/cmake/GenerateVersionRc.cmake
     -DTEST_ROOT=${CMAKE_BINARY_DIR}/version-tests
@@ -76,7 +76,6 @@ target_include_directories(BugReproTest PRIVATE
 )
 target_link_libraries(BugReproTest PRIVATE 
     McBopomofoEngine 
-    BopomofoBraille
     Common 
     libopencc 
     gtest_main

@@ -346,10 +346,9 @@ TEST_SUITE("BopomofoBrailleConverter") {
     SUBCASE("should handle space-only input") {
       std::string input = "   ";
       std::string r1 = convertBpmfToBraille(input);
+      CHECK(r1 == input);
       std::string r2 = convertBrailleToBpmf(r1);
-      CHECK(r2 == "   ");  // Wait, TS expectation: expect(r2.trim()).toBe("");
-                           // we can check that it's whitespace
-      CHECK(r2.find_first_not_of(" ") == std::string::npos);
+      CHECK(r2 == input);
     }
 
     SUBCASE("should handle invalid bopomofo characters") {
@@ -422,6 +421,18 @@ TEST_SUITE("BopomofoBrailleConverter") {
       CHECK(r1 == "⠁⠃⠉⠲");
       std::string r2 = convertBrailleToBpmf(r1);
       CHECK(r2 == input);
+    }
+  }
+
+  TEST_CASE("incomplete indicators remain literal") {
+    SUBCASE("Unicode indicators") {
+      CHECK(convertBrailleToBpmf("⠼") == "⠼");
+      CHECK(convertBrailleToBpmf("⠁⠠") == "a⠠");
+    }
+
+    SUBCASE("ASCII indicators") {
+      CHECK(convertBrailleToBpmf("#", BrailleType::ASCII) == "#");
+      CHECK(convertBrailleToBpmf("a,", BrailleType::ASCII) == "a,");
     }
   }
 
@@ -606,11 +617,18 @@ TEST_SUITE("BopomofoBrailleConverter") {
     }
 
     SUBCASE("should handle uppercase letter indicators") {
-      std::string input = "AbC";
-      std::string r1 = convertBpmfToBraille(input);
-      CHECK(r1.find("⠠") != std::string::npos);
-      std::string r2 = convertBrailleToBpmf(r1);
-      CHECK(r2 == "AbC");
+      for (BrailleType type : {BrailleType::ASCII, BrailleType::UNICODE}) {
+        for (const std::string input : {"AbC", "abcdefghijklmnopqrstuvwxyz",
+                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"}) {
+          const std::string braille = convertBpmfToBraille(input, type);
+          if (input.front() >= 'A' && input.front() <= 'Z') {
+            const std::string uppercasePrefix =
+                type == BrailleType::ASCII ? "," : "⠠";
+            CHECK(braille.find(uppercasePrefix) != std::string::npos);
+          }
+          CHECK(convertBrailleToBpmf(braille, type) == input);
+        }
+      }
     }
   }
 
@@ -625,6 +643,26 @@ TEST_SUITE("BopomofoBrailleConverter") {
       std::string braille = "⠋⠺⠂   ⠋⠺⠂";
       auto tokens = convertBrailleToTokens(braille);
       CHECK(tokens.size() > 1);
+    }
+  }
+
+  TEST_CASE("preserves pure spaces in both Braille types") {
+    for (BrailleType type : {BrailleType::UNICODE, BrailleType::ASCII}) {
+      for (const std::string input : {std::string(""), std::string(" "),
+                                      std::string("   "), std::string("      ")}) {
+        const std::string braille = convertBpmfToBraille(input, type);
+        CHECK(braille == input);
+        CHECK(convertBrailleToBpmf(braille, type) == input);
+
+        const auto tokens = convertBrailleToTokens(input, type);
+        if (input.empty()) {
+          CHECK(tokens.empty());
+        } else {
+          REQUIRE(tokens.size() == 1);
+          REQUIRE(std::holds_alternative<std::string>(tokens[0]));
+          CHECK(std::get<std::string>(tokens[0]) == input);
+        }
+      }
     }
   }
 

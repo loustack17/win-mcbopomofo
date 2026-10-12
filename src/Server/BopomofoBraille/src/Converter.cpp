@@ -87,6 +87,10 @@ bool vectorContains(const std::vector<std::string>& vec,
   return std::find(vec.begin(), vec.end(), val) != vec.end();
 }
 
+bool isSpaceOnly(const std::string& text) {
+  return !text.empty() && text.find_first_not_of(' ') == std::string::npos;
+}
+
 std::optional<std::string> bpmf2br_HandleDigitsState(StringCursor& cursor,
                                                      BrailleType type) {
   const std::string substring = cursor.current();
@@ -369,6 +373,10 @@ std::optional<std::string> br2t_ProcessHalfWidthPunctuation(
 
 std::string BopomofoBrailleConverter::convertBpmfToBraille(
     const std::string& bopomofo, BrailleType type) {
+  if (isSpaceOnly(bopomofo)) {
+    return bopomofo;
+  }
+
   ConverterState state = ConverterState::initial;
   std::string output = "";
   StringCursor cursor(bopomofo);
@@ -473,6 +481,10 @@ std::string BopomofoBrailleConverter::convertBpmfToBraille(
 std::vector<BopomofoBrailleConverter::Token>
 BopomofoBrailleConverter::convertBrailleToTokens(const std::string& braille,
                                                  BrailleType type) {
+  if (isSpaceOnly(braille)) {
+    return {braille};
+  }
+
   ConverterState state = ConverterState::initial;
   std::vector<Token> output;
   std::string nonBpmfText = "";

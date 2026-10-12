@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-beta.7
+
+- Preserve exact pure-space input in Braille encoding, decoding, and token conversion while retaining mixed-content normalization.
+- Run the complete Braille test suite in root CTest and CI, and preserve its independent build.
+- Consolidate Braille regressions into their owning test target and retain uppercase-indicator assertions.
+- Remove unreferenced process-close tooling, machine-specific OpenCC probes, and obsolete compatibility headers.
+- Consolidate development guidance and correct installer and test documentation.
+
 ## 1.0.0-beta.6
 
 - Merge upstream commit `978b39d`, requiring a following cell before interpreting a Braille uppercase indicator.

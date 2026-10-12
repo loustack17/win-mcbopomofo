@@ -2,6 +2,7 @@ add_executable(BopomofoBrailleTests
     test_main.cpp
     test_BopomofoSyllable.cpp
     test_Converter.cpp
+    ../../Engine/UTF8Helper.cpp
 )
 
 target_link_libraries(BopomofoBrailleTests PRIVATE BopomofoBraille)

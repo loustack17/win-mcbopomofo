@@ -30,7 +30,9 @@ target_include_directories(BopomofoBraille PRIVATE
 )
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    # Test target
-    enable_testing()
+    include(CTest)
+endif()
+
+if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
