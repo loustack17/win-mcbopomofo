@@ -16,6 +16,7 @@
 - Gradually reduce maintained C, VBScript, and PowerShell code by consolidating responsibilities and removing verified dead code. Preserve required Windows build and installer integration until a validated replacement exists.
 - Do not rewrite third-party dependencies or alter language statistics just to change GitHub's language chart.
 - Migrate incrementally, preserve input behavior and installation compatibility, and verify each replacement before removing the old path.
+- Review upstream changes against existing fork behavior, reuse current implementations and test targets, and preserve merge ancestry to avoid reapplying the same changes.
 
 # Release versioning
 

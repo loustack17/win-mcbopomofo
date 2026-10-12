@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "BopomofoBraille/Converter.h"
 #include "InputController.h"
 #include "KeyHandler.h"
 #include "LanguageModelLoader.h"
@@ -595,6 +596,29 @@ TEST_F(ShiftLetterTest, BridgePreservesShiftForShortcutsAndCandidateSelection) {
   payload.ctrl = true;
   EXPECT_TRUE(mapIpcKey(payload).shiftPressed);
   EXPECT_TRUE(mapIpcKey(payload).ctrlPressed);
+}
+
+TEST(BrailleCompatibilityTest, IncompleteUnicodeIndicatorsRemainLiteral) {
+  EXPECT_EQ(BopomofoBrailleConverter::convertBrailleToBpmf("⠼"), "⠼");
+  EXPECT_EQ(BopomofoBrailleConverter::convertBrailleToBpmf("⠁⠠"), "a⠠");
+}
+
+TEST(BrailleCompatibilityTest, IncompleteAsciiIndicatorsRemainLiteral) {
+  EXPECT_EQ(BopomofoBrailleConverter::convertBrailleToBpmf("#", BrailleType::ASCII),
+            "#");
+  EXPECT_EQ(BopomofoBrailleConverter::convertBrailleToBpmf("a,", BrailleType::ASCII),
+            "a,");
+}
+
+TEST(BrailleCompatibilityTest, CompleteLettersRoundTripInBothRepresentations) {
+  for (BrailleType type : {BrailleType::ASCII, BrailleType::UNICODE}) {
+    for (const std::string text : {"AbC", "abcdefghijklmnopqrstuvwxyz",
+                                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"}) {
+      SCOPED_TRACE(text);
+      const auto braille = BopomofoBrailleConverter::convertBpmfToBraille(text, type);
+      EXPECT_EQ(BopomofoBrailleConverter::convertBrailleToBpmf(braille, type), text);
+    }
+  }
 }
 
 int main(int argc, char** argv) {

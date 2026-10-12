@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta.6
+
+- Merge upstream commit `978b39d`, requiring a following cell before interpreting a Braille uppercase indicator.
+- Add incomplete Unicode/ASCII indicator and complete letter round-trip regressions to the existing CI test target.
+- Preserve the fork's input compatibility fixes, keyboard layout coverage, release workflow, and repository cleanup.
+
 ## 1.0.0-beta.5
 
 - Route uppercase ASCII letters to configured English letter output before phonetic reading recognition, including Hanyu Pinyin.

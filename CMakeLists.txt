@@ -76,6 +76,7 @@ target_include_directories(BugReproTest PRIVATE
 )
 target_link_libraries(BugReproTest PRIVATE 
     McBopomofoEngine 
+    BopomofoBraille
     Common 
     libopencc 
     gtest_main
