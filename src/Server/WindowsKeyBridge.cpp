@@ -166,7 +166,10 @@ Key mapIpcKey(const IPC::KeyEventPayload& payload) {
       break;
   }
 
-  return Key(ascii, name, payload.shift, payload.ctrl, isFromNumberPad);
+  const bool encodedShift = ascii >= 'A' && ascii <= 'Z' &&
+                            !payload.ctrl && !isFromNumberPad;
+  return Key(ascii, name, payload.shift && !encodedShift, payload.ctrl,
+             isFromNumberPad);
 }
 
 }  // namespace McBopomofo

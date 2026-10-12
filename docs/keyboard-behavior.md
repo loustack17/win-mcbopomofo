@@ -89,8 +89,16 @@ empty, no TIP composition exists, and Ctrl, Alt, and Windows keys are absent.
 The actual key callback reports the key as eaten only after SetText succeeds;
 failure before writing leaves it uneaten. If a later cleanup operation fails,
 the already written key remains eaten to prevent duplicate insertion. Failures
-are recorded by stage in the local diagnostic log. Letters and Space keep their
-existing routing. Server punctuation mappings and active composition are retained.
+are recorded by stage in the local diagnostic log. Space keeps its existing
+routing. Server punctuation mappings and active composition are retained.
+
+Shift-modified uppercase ASCII letters are normalized at the Windows key bridge:
+the character already encodes Shift, so its engine key has no Shift modifier.
+Shift remains available for digit selection and complex shortcuts. The engine
+then applies the configured uppercase/lowercase behavior. Standalone uppercase
+letters are committed through the normal server/TSF path instead of relying on
+the host to replay a declined event. Lowercase mode retains the language-model
+letter mappings and existing composition/candidate behavior.
 
 Shift release is additionally registered as a TSF preserved key following the
 Microsoft SampleIME pattern. Preserved and ordinary release callbacks share the

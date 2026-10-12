@@ -538,8 +538,9 @@ bool KeyHandler::handle(Key key, McBopomofo::InputState* state,
       } else {
         // If current state is *not* NonEmpty, it must be Empty.
         if (maybeNotEmptyState == nullptr) {
-          // We don't need to handle this key.
-          return false;
+          stateCallback(std::make_unique<InputStates::Committing>(chrStr));
+          reset();
+          return true;
         }
 
         grid_.insertReading(unigram);

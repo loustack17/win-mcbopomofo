@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta.4
+
+- Normalize Shift-modified uppercase ASCII letters at the Windows key bridge so the engine applies the configured letter case.
+- Commit standalone uppercase letters through the input method instead of relying on the host to replay a declined key.
+- Preserve Shift modifiers for candidate selection and Space, Enter, Tab, cursor, and Ctrl shortcuts.
+- Add regression coverage for all 26 letters in both case settings, pending Chinese text, and modifier preservation.
+
 ## 1.0.0-beta.3
 
 - Add a guarded TSF literal commit for unconsumed ASCII punctuation and digits in LINE and WezTerm when composition and candidates are empty.

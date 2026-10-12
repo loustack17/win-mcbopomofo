@@ -64,6 +64,7 @@ add_test(NAME CandidateWindowTest COMMAND CandidateWindowTest)
 add_executable(BugReproTest 
     tests/BugReproTest.cpp 
     src/Server/InputController.cpp
+    src/Server/WindowsKeyBridge.cpp
 )
 target_include_directories(BugReproTest PRIVATE 
     ${CMAKE_SOURCE_DIR}/src/Client 

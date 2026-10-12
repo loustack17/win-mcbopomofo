@@ -8,6 +8,7 @@
 #include "McBopomofoLM.h"
 #include "ParselessPhraseDB.h"
 #include "UIInterface.h"
+#include "WindowsKeyBridge.h"
 
 using namespace McBopomofo;
 
@@ -457,6 +458,90 @@ TEST_F(DirectPunctuationTest, CandidateSpaceStillPagesCandidates) {
   EXPECT_TRUE(controller->handleKey(Key::asciiKey(Key::SPACE, false, false)));
   EXPECT_TRUE(ui->committedString.empty());
   EXPECT_FALSE(ui->lastState.candidates.empty());
+}
+
+class ShiftLetterTest : public DirectPunctuationTest {
+ protected:
+  void SetUp() override {
+    DirectPunctuationTest::SetUp();
+    static const std::string model = [] {
+      std::string data = "# format org.openvanilla.mcbopomofo.sorted\n";
+      for (char letter = 'A'; letter <= 'Z'; ++letter) {
+        const std::string reading = "_letter_" + std::string(1, letter);
+        data += reading + " " + static_cast<char>(letter + 'a' - 'A') + " 0.0\n";
+        data += reading + " " + letter + " -1.0\n";
+      }
+      return data + "ㄋㄧ 你 -1.0\nㄋㄧˇ 你 -1.0\n";
+    }();
+    lm->loadLanguageModel(
+        std::make_unique<ParselessPhraseDB>(model.data(), model.size()));
+  }
+
+  Key shiftedLetter(char letter) {
+    IPC::KeyEventPayload payload{};
+    payload.vk = static_cast<unsigned>(letter);
+    payload.ascii = static_cast<unsigned>(letter);
+    payload.shift = true;
+    return mapIpcKey(payload);
+  }
+};
+
+TEST_F(ShiftLetterTest, UppercaseSettingCommitsAllLettersFromEmptyHsuState) {
+  controller->setKeyboardLayout(
+      Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout());
+  controller->setPutLowercaseLettersToComposingBuffer(false);
+  for (char letter = 'A'; letter <= 'Z'; ++letter) {
+    SCOPED_TRACE(letter);
+    ASSERT_TRUE(controller->handleKey(shiftedLetter(letter)));
+    EXPECT_EQ(ui->committedString, std::string(1, letter));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
+}
+
+TEST_F(ShiftLetterTest, LowercaseSettingCommitsAllLettersFromEmptyHsuState) {
+  controller->setKeyboardLayout(
+      Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout());
+  controller->setPutLowercaseLettersToComposingBuffer(true);
+  for (char letter = 'A'; letter <= 'Z'; ++letter) {
+    SCOPED_TRACE(letter);
+    ASSERT_TRUE(controller->handleKey(shiftedLetter(letter)));
+    EXPECT_EQ(ui->committedString,
+              std::string(1, static_cast<char>(letter + 'a' - 'A')));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
+}
+
+TEST_F(ShiftLetterTest, UppercaseSettingCommitsPendingChineseWithLetter) {
+  composeChinese();
+  controller->setPutLowercaseLettersToComposingBuffer(false);
+  EXPECT_TRUE(controller->handleKey(shiftedLetter('A')));
+  EXPECT_EQ(ui->committedString, "你A");
+}
+
+TEST_F(ShiftLetterTest, LowercaseSettingCommitsPendingChineseWithLetter) {
+  composeChinese();
+  controller->setPutLowercaseLettersToComposingBuffer(true);
+  EXPECT_TRUE(controller->handleKey(shiftedLetter('A')));
+  EXPECT_EQ(ui->committedString, "你a");
+}
+
+TEST_F(ShiftLetterTest, BridgePreservesShiftForShortcutsAndCandidateSelection) {
+  const unsigned shortcutKeys[] = {VK_SPACE, VK_RETURN, VK_TAB,
+                                   VK_LEFT, '1', VK_OEM_1};
+  for (unsigned vk : shortcutKeys) {
+    IPC::KeyEventPayload payload{};
+    payload.vk = vk;
+    payload.ascii = vk == '1' ? '!' : 0;
+    payload.shift = true;
+    EXPECT_TRUE(mapIpcKey(payload).shiftPressed);
+  }
+  IPC::KeyEventPayload payload{};
+  payload.vk = 'A';
+  payload.ascii = 'A';
+  payload.shift = true;
+  payload.ctrl = true;
+  EXPECT_TRUE(mapIpcKey(payload).shiftPressed);
+  EXPECT_TRUE(mapIpcKey(payload).ctrlPressed);
 }
 
 int main(int argc, char** argv) {
