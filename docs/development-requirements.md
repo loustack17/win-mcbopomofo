@@ -18,7 +18,7 @@ In other words:
 
 ## 2. Test File Locations
 
-All project-specific tests are located in the `tests/` directory.
+Integration and Windows regression tests are located in the root `tests/` directory. Component tests stay with their owning modules; the complete Braille suite is in `src/Server/BopomofoBraille/tests/` and runs in the root CTest suite.
 
 Currently existing tests include:
 
@@ -26,17 +26,17 @@ Currently existing tests include:
 - `tests/InputMacroTest.cpp` - Tests input macros and text expansion.
 - `tests/IpcTest.cpp` - Tests IPC serialization and deserialization payloads.
 - `tests/PipeTest.cpp` - Validates named pipe connection and robust transfer logic.
-- `tests/RegisterCategories.cpp` - Tests COM registration paths.
 - `tests/test_candidate_window.cpp` - Tests the UI candidate window logic.
-- `tests/test_cocreate.cpp` - Validates COM object instantiation.
-- `tests/test_ipc_client.cpp` - Tests the IPC client mechanism.
-- `tests/test_pipe.cpp` - Low-level pipe wrapper tests.
-- `tests/test_server.cpp` - Server bootstrap tests.
+- `src/Server/BopomofoBraille/tests/` - Braille syllable and converter tests, including whitespace and incomplete indicators.
+
+Manual diagnostic probes (`RegisterCategories.cpp`, `test_cocreate.cpp`,
+`test_ipc_client.cpp`, `test_pipe.cpp`, and `test_server.cpp`) are retained for
+local investigation and are not registered in CTest.
 
 When adding a new test:
 
-- Place it in the `tests/` directory.
-- Simultaneously update the root `CMakeLists.txt` to include the test target and `add_test(...)`.
+- Place integration regressions in the root `tests/` directory and component tests beside the component.
+- Register the test target with CTest so the root test run includes it. Reuse the owning component's test framework and target.
 
 ## 3. Test Naming and Scope
 

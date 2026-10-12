@@ -85,8 +85,8 @@ This renderer decision is separate from the TSF UIElement path:
 
 Relevant code:
 
-- [src/Server/CandidateWindow.h](C:/Users/user/Works/win-mcbopomofo/src/Server/CandidateWindow.h)
-- [src/Server/TooltipWindow.h](C:/Users/user/Works/win-mcbopomofo/src/Server/TooltipWindow.h)
+- [src/Server/CandidateWindow.h](../src/Server/CandidateWindow.h)
+- [src/Server/TooltipWindow.h](../src/Server/TooltipWindow.h)
 
 ## When Components Are Created
 
@@ -99,7 +99,7 @@ In `McBopomofoTIP::ActivateEx()`:
 
 Relevant code:
 
-- [src/Client/McBopomofoTIP.cpp](C:/Users/user/Works/win-mcbopomofo/src/Client/McBopomofoTIP.cpp)
+- [src/Client/McBopomofoTIP.cpp](../src/Client/McBopomofoTIP.cpp)
 
 In `McBopomofoServer.exe` startup:
 
@@ -110,7 +110,7 @@ In `McBopomofoServer.exe` startup:
 
 Relevant code:
 
-- [src/Server/main.cpp](C:/Users/user/Works/win-mcbopomofo/src/Server/main.cpp)
+- [src/Server/main.cpp](../src/Server/main.cpp)
 
 This means:
 
@@ -197,8 +197,8 @@ D2D render target cannot be created or must be recreated.
 
 Relevant code:
 
-- [src/Server/CandidateWindow.cpp](C:/Users/user/Works/win-mcbopomofo/src/Server/CandidateWindow.cpp)
-- [src/Server/TooltipWindow.cpp](C:/Users/user/Works/win-mcbopomofo/src/Server/TooltipWindow.cpp)
+- [src/Server/CandidateWindow.cpp](../src/Server/CandidateWindow.cpp)
+- [src/Server/TooltipWindow.cpp](../src/Server/TooltipWindow.cpp)
 
 ## What the GDI Path Must Support
 
@@ -235,9 +235,9 @@ It therefore includes:
 Relevant code:
 
 - `CandidateWindow` paint path:
-  [src/Server/CandidateWindow.cpp](C:/Users/user/Works/win-mcbopomofo/src/Server/CandidateWindow.cpp)
+  [src/Server/CandidateWindow.cpp](../src/Server/CandidateWindow.cpp)
 - `TooltipWindow` paint path:
-  [src/Server/TooltipWindow.cpp](C:/Users/user/Works/win-mcbopomofo/src/Server/TooltipWindow.cpp)
+  [src/Server/TooltipWindow.cpp](../src/Server/TooltipWindow.cpp)
 
 ## Actual Branch Flow
 
@@ -251,7 +251,7 @@ The logic is almost identical in both branches.
 
 Relevant code:
 
-- [src/Client/StateEditSession.cpp](C:/Users/user/Works/win-mcbopomofo/src/Client/StateEditSession.cpp)
+- [src/Client/StateEditSession.cpp](../src/Client/StateEditSession.cpp)
 
 ### 1. No Candidates
 

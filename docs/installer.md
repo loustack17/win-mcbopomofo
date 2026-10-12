@@ -1,103 +1,64 @@
-# Win-McBopomofo Installer Guide
+# Windows Installer
 
-This document describes what the Win-McBopomofo MSI installer does when run on a user's machine, and explains how developers can build it.
+The MSI packages the x64, x86, and ARM64 builds and their runtime data. See
+[development requirements](development-requirements.md) and
+[version metadata](version-metadata.md) for the toolchain and version rules.
 
-## 1. What the Installer Does
+## Installation and Upgrade
 
-**Note: Running the MSI installer requires elevated (Administrator) privileges.** This is because it writes to protected system directories (`Program Files`) and performs system-wide COM registration.
+Installation and upgrade require administrator elevation because the MSI is per-machine.
 
-The installer is authored using the WiX Toolset v4/v7 (`installer/installer.wxs`) and performs the following actions during installation:
+The installer selects the appropriate binaries, deploys them with the language
+models and OpenCC dictionaries, registers the TSF DLLs, creates the configuration
+shortcut and server autorun entry, and starts the server.
 
-### A. Pre-requisite Checks and Cleanup
+`installer/installer.wxs` defines these actions. The active application-close
+check uses `scripts/CheckAndCloseAppsWithTIP.vbs`; the development installation
+path uses `scripts/close_ime_apps.ps1` instead.
 
-- Checks if `McBopomofoServer.exe` or `McBopomofoConfig.exe` is currently running and attempts to close them gracefully.
-- Runs a custom VBScript (`scripts\CheckAndCloseAppsWithTIP.vbs`) to detect and close applications that currently have the TSF DLL loaded. This helps prevent file locks that require a system reboot.
+Server close actions first request graceful shutdown, then use a five-second
+termination fallback with exit code zero (`TerminateProcess="0"`). They use `RebootPrompt="no"`; configuration-app close
+actions use `RebootPrompt="yes"`. Windows Installer may still request a reboot
+when locked files cannot be replaced. Preserve this distinction when changing
+shutdown behavior.
 
-### B. File Deployment
+Upgrades detected through `WIX_UPGRADE_DETECTED` retain the installation
+directory and skip directory editing. Preserve the UpgradeCode and component
+GUIDs. Uninstallation reverses registration, shortcuts, autorun, and deployed
+files.
 
-Files are extracted to the target directory: `C:\Program Files\OpenVanilla\WinMcBopomofo` (on x64) or `C:\Program Files (x86)\OpenVanilla\WinMcBopomofo` (on 32-bit).
+## Build
 
-The files deployed include:
-
-- Core Executables:
-    - `McBopomofoServer_<arch>.exe`
-    - `McBopomofoConfig_<arch>.exe`
-- The TSF Client DLL: `McBopomofoTIP_<arch>.dll`
-- Language Models & Data (`data\`): `data.txt`, `data-plain-bpmf.txt`, `dictionary_service.json`, etc.
-- OpenCC Conversion Data (`data\opencc\`): Contains `.ocd2` dictionaries and `tw2s.json`.
-
-*(Note: The installer automatically selects the correct architecture-specific executables based on the target machine's CPU architecture: x86, x64, or ARM64).*
-
-### C. System Registration & Configuration
-
-- **COM Registration (TSF):** The installer executes `regsvr32.exe /s McBopomofoTIP_<arch>.dll`. This registers the DLL as an in-process COM server and notifies the Windows Text Services Framework that the input method is available.
-- **Autorun:** Adds a registry string named `Win-McBopomofo-Server` pointing to the Server executable in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. This ensures the background engine starts when the user logs in.
-- **Start Menu Shortcut:** Creates a shortcut in the Start Menu for the configuration app (`McBopomofoConfig_<arch>.exe`).
-
-### D. Post-Installation
-
-- Executes the architecture-appropriate `McBopomofoServer.exe` immediately after the installation finishes, ensuring the user can type right away without logging out.
-
----
-
-## 2. Uninstallation Process
-
-When the user uninstalls the software, the MSI reverses the process:
-
-1. Closes active processes.
-2. Unregisters the TSF Client DLL by calling `regsvr32.exe /u /s McBopomofoTIP_<arch>.dll`.
-3. Removes the Start Menu shortcuts and Autorun registry keys.
-4. Deletes the deployed binaries and data files.
-
----
-
-## 3. How to Build the Installer
-
-Building the MSI installer is automated via the `build_msi.ps1` script at the root of the repository.
-
-### Prerequisites
-
-Make sure you have satisfied the [Development Requirements](../README.md#development-requirements) (Visual Studio with C++ tools for x86/x64/ARM64, CMake, and WiX Toolset).
-
-### Build Command
-
-Open a PowerShell terminal at the project root and run:
+Use Visual Studio C++ tools for all three architectures, CMake, and WiX 7.
+`build_msi.ps1` manages `WixToolset.UI.wixext/7.0.0` and
+`WixToolset.Util.wixext/7.0.0`.
 
 ```powershell
+wix eula accept wix7
 .\build_msi.ps1
 ```
 
-### What the Script Does
+The script builds Release binaries for all architectures, generates OpenCC
+dictionaries, verifies their version metadata, converts the license to RTF,
+and packages the MSI. `-Configuration Debug` selects Debug binaries.
 
-1. **Compiles all architectures:** It calls `cmake` and `cmake --build` sequentially for `x64`, `x86`, and `ARM64`. This ensures all `_x64`, `_x86`, and `_arm64` binaries are available.
-2. **Generates OpenCC dictionaries:** Triggers the OpenCC dictionary build target.
-3. **Converts the License:** Generates an RTF version of `LICENSE.txt` to embed in the MSI wizard UI.
-4. **Executes WiX:** Invokes `wix build` with the `installer/installer.wxs` file, passing the build output paths (e.g., `X64BinDir=build_x64\bin\Release`) as bind variables.
+After building matching binaries, packaging-only verification can use:
 
-### Customizing the Build
+```powershell
+.\build_msi.ps1 -SkipBuild
+```
 
-The script supports several flags:
+Outputs are written to `dist/Win-McBopomofo-<version>-Installer.msi`, with the
+complete semantic version from `Version.cmake`. A custom `-OutputName` must
+contain that current version and end in `.msi`.
 
-- **Build Debug MSI:**
+License generation preserves `LICENSE.txt`, joins hard-wrapped lines within
+each paragraph, and separates paragraphs with `\par\par` in the generated RTF.
+Keep the license dialog's paragraph spacing readable.
 
-  ```powershell
-  .\build_msi.ps1 -Configuration Debug
-  ```
+## Verification
 
-- **Skip Binary Build (If you have already built them):**
-
-  ```powershell
-  .\build_msi.ps1 -SkipBuild
-  ```
-
-- **Custom Output Name:**
-
-  ```powershell
-  .\build_msi.ps1 -OutputName "MyCustomBuild.msi"
-  ```
-
-### Outputs
-
-Once complete, the final installer is placed in the `dist\` directory:
-
-- `dist\Win-McBopomofo-Installer.msi`
+Before release, check the MSI ProductVersion, installer UpgradeCode, and version
+resources in all nine packaged binaries. Test registration and upgrade behavior
+when changing installer actions. An administrative extraction verifies package
+contents but does not substitute for an installed upgrade test.

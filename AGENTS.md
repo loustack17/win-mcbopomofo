@@ -20,6 +20,8 @@
 
 # Release versioning
 
+- Use Conventional Commit subjects for new changes, with English subjects and bodies.
+
 - Use `master` as this fork's development and release trunk. Preserve `main` as the upstream reference.
 - Use `.github/workflows/fork-ci.yml` for fork CI and releases; keep the legacy `build.yml` workflow disabled in GitHub.
 - Use the full semantic version alone for release titles, without localized suffixes. Indicate testing stages with beta or rc. Publish GitHub releases as latest, non-prerelease entries so the repository sidebar displays the version.
@@ -31,3 +33,10 @@
 - Keep full semantic versions in binary metadata, MSI product names, installer filenames, and Actions artifact names.
 - Verify generated metadata, actual binary resources, tests, and MSI properties before reporting a versioned installer as ready.
 - Preserve the installer UpgradeCode and component GUIDs.
+
+# Build and platform invariants
+
+- Use CMake and each component's declared C++ standard. Prefer existing Windows integration boundaries and preserve portable engine components.
+- Support Windows 10 and later on x86, x64, and ARM64. Validate all packaged architectures before release.
+- Preserve generic executable lookup followed by architecture-specific fallback when launching packaged tools.
+- Follow `docs/installer.md` for WiX extensions, license generation, upgrade UI, shutdown, and reboot behavior.
