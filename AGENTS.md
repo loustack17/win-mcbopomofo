@@ -2,6 +2,7 @@
 
 - Use English for new general-purpose identifiers, code comments, configuration labels, and development tooling.
 - Keep developer instruction files, including AGENTS.md, entirely in English; do not mix languages within them.
+- Write Git commit subjects and bodies entirely in English. Use English names for development branches and tooling metadata, and semantic versions for release names and tags.
 - Documentation may use Traditional Chinese or English, including the root README.
 - Preserve language-specific content required by the input method: Bopomofo symbols and identifiers, Chinese UI strings, dictionaries, linguistic mappings, and corresponding test data.
 - Do not enforce blanket ASCII conversion or escape existing text solely to remove non-English characters. Preserve third-party content and attribution.
