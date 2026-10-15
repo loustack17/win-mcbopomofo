@@ -38,6 +38,11 @@ namespace McBopomofo {
 static constexpr std::string_view kMacroPrefix = "MACRO@";
 static constexpr double kMacroScore = -8.0;
 
+static bool IsLiteralReading(const std::string& key) {
+  return key == " " ||
+         (key.size() == 1 && key[0] >= '0' && key[0] <= '9');
+}
+
 void McBopomofoLM::loadLanguageModel(const char* languageModelDataPath) {
   if (languageModelDataPath) {
     languageModel_.close();
@@ -137,10 +142,8 @@ std::vector<McBopomofoLM::UserFileIssue> McBopomofoLM::getUserFileIssues()
 
 std::vector<Formosa::Gramambular2::LanguageModel::Unigram>
 McBopomofoLM::getUnigrams(const std::string& key) {
-  if (key == " ") {
-    std::vector<Formosa::Gramambular2::LanguageModel::Unigram> spaceUnigrams;
-    spaceUnigrams.emplace_back(" ", 0);
-    return spaceUnigrams;
+  if (IsLiteralReading(key)) {
+    return {Formosa::Gramambular2::LanguageModel::Unigram(key, 0)};
   }
 
   std::vector<Formosa::Gramambular2::LanguageModel::Unigram> allUnigrams;
@@ -219,7 +222,7 @@ McBopomofoLM::getUnigrams(const std::string& key) {
 }
 
 bool McBopomofoLM::hasUnigrams(const std::string& key) {
-  if (key == " ") {
+  if (IsLiteralReading(key)) {
     return true;
   }
 

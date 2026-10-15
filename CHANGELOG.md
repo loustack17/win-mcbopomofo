@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta.8
+
+- Commit unassigned top-row digits directly in Chinese mode, including pending completed Chinese at the end of the composing buffer.
+- Preserve phonetic digit mappings, candidate selection, unfinished readings, insertion within text, and existing number-pad behavior.
+- Extend keyboard-layout regressions to cover top-row digits across all six supported layouts.
+
 ## 1.0.0-beta.7
 
 - Preserve exact pure-space input in Braille encoding, decoding, and token conversion while retaining mixed-content normalization.

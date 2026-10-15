@@ -530,6 +530,20 @@ bool KeyHandler::handle(Key key, McBopomofo::InputState* state,
       return true;
     }
 
+    if (simpleAscii >= '0' && simpleAscii <= '9' && reading_.isEmpty()) {
+      if (grid_.cursor() == grid_.length()) {
+        auto committing = std::make_unique<InputStates::Committing>(
+            buildInputtingState()->composingBuffer + chrStr);
+        reset();
+        stateCallback(std::move(committing));
+      } else {
+        grid_.insertReading(chrStr);
+        walk();
+        stateCallback(buildInputtingState());
+      }
+      return true;
+    }
+
     // Upper case letters.
     if (uppercaseLetter) {
       unigram = std::string(kLetterPrefix) + chrStr;

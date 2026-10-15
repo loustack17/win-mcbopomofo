@@ -471,7 +471,10 @@ class ShiftLetterTest : public DirectPunctuationTest {
         data += reading + " " + static_cast<char>(letter + 'a' - 'A') + " 0.0\n";
         data += reading + " " + letter + " -1.0\n";
       }
-      return data + "ㄋㄧ 你 -1.0\nㄋㄧˇ 你 -1.0\n";
+      for (char digit = '0'; digit <= '9'; ++digit) {
+        data += "_numpad_" + std::string(1, digit) + " " + digit + " 0.0\n";
+      }
+      return data + "_punctuation_! ！ -1.0\nㄋㄧ 你 -1.0\nㄋㄧˇ 你 -1.0\n";
     }();
     lm->loadLanguageModel(
         std::make_unique<ParselessPhraseDB>(model.data(), model.size()));
@@ -486,7 +489,7 @@ class ShiftLetterTest : public DirectPunctuationTest {
   }
 };
 
-class ShiftLetterLayoutTest
+class KeyboardLayoutTest
     : public ShiftLetterTest,
       public ::testing::WithParamInterface<
           const Formosa::Mandarin::BopomofoKeyboardLayout*> {
@@ -494,6 +497,24 @@ class ShiftLetterLayoutTest
   void SetUp() override {
     ShiftLetterTest::SetUp();
     controller->setKeyboardLayout(GetParam());
+  }
+
+  std::string literalDigits() const {
+    using Formosa::Mandarin::BopomofoKeyboardLayout;
+    if (GetParam() == BopomofoKeyboardLayout::StandardLayout() ||
+        GetParam() == BopomofoKeyboardLayout::IBMLayout()) {
+      return "";
+    }
+    return GetParam() == BopomofoKeyboardLayout::ETenLayout()
+               ? "56"
+               : "0123456789";
+  }
+
+  Key digitKey(char digit, bool numberPad = false) {
+    IPC::KeyEventPayload payload{};
+    payload.vk = numberPad ? VK_NUMPAD0 + digit - '0' : digit;
+    payload.ascii = static_cast<unsigned>(digit);
+    return mapIpcKey(payload);
   }
 
   void composeChineseForLayout() {
@@ -512,7 +533,7 @@ class ShiftLetterLayoutTest
   }
 };
 
-TEST_P(ShiftLetterLayoutTest, UppercaseSettingCommitsAllLettersFromEmptyState) {
+TEST_P(KeyboardLayoutTest, UppercaseSettingCommitsAllLettersFromEmptyState) {
   controller->setPutLowercaseLettersToComposingBuffer(false);
   for (char letter = 'A'; letter <= 'Z'; ++letter) {
     SCOPED_TRACE(letter);
@@ -522,7 +543,7 @@ TEST_P(ShiftLetterLayoutTest, UppercaseSettingCommitsAllLettersFromEmptyState) {
   }
 }
 
-TEST_P(ShiftLetterLayoutTest, LowercaseSettingCommitsAllLettersFromEmptyState) {
+TEST_P(KeyboardLayoutTest, LowercaseSettingCommitsAllLettersFromEmptyState) {
   controller->setPutLowercaseLettersToComposingBuffer(true);
   for (char letter = 'A'; letter <= 'Z'; ++letter) {
     SCOPED_TRACE(letter);
@@ -533,7 +554,7 @@ TEST_P(ShiftLetterLayoutTest, LowercaseSettingCommitsAllLettersFromEmptyState) {
   }
 }
 
-TEST_P(ShiftLetterLayoutTest, UppercaseSettingCommitsPendingChineseWithAllLetters) {
+TEST_P(KeyboardLayoutTest, UppercaseSettingCommitsPendingChineseWithAllLetters) {
   controller->setPutLowercaseLettersToComposingBuffer(false);
   for (char letter = 'A'; letter <= 'Z'; ++letter) {
     SCOPED_TRACE(letter);
@@ -544,7 +565,7 @@ TEST_P(ShiftLetterLayoutTest, UppercaseSettingCommitsPendingChineseWithAllLetter
   }
 }
 
-TEST_P(ShiftLetterLayoutTest, LowercaseSettingCommitsPendingChineseWithAllLetters) {
+TEST_P(KeyboardLayoutTest, LowercaseSettingCommitsPendingChineseWithAllLetters) {
   controller->setPutLowercaseLettersToComposingBuffer(true);
   for (char letter = 'A'; letter <= 'Z'; ++letter) {
     SCOPED_TRACE(letter);
@@ -556,7 +577,7 @@ TEST_P(ShiftLetterLayoutTest, LowercaseSettingCommitsPendingChineseWithAllLetter
   }
 }
 
-TEST_P(ShiftLetterLayoutTest, OrdinaryChineseInputStillCommits) {
+TEST_P(KeyboardLayoutTest, OrdinaryChineseInputStillCommits) {
   ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
   IPC::KeyEventPayload payload{};
   payload.vk = VK_RETURN;
@@ -564,8 +585,166 @@ TEST_P(ShiftLetterLayoutTest, OrdinaryChineseInputStillCommits) {
   EXPECT_EQ(ui->committedString, "你");
 }
 
+TEST_P(KeyboardLayoutTest, TopRowDigitsCommitFromEmptyState) {
+  for (char digit : literalDigits()) {
+    SCOPED_TRACE(digit);
+    ASSERT_TRUE(controller->handleKey(digitKey(digit)));
+    EXPECT_EQ(ui->committedString, std::string(1, digit));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
+}
+
+TEST_P(KeyboardLayoutTest, TopRowDigitsCommitPendingChinese) {
+  for (char digit : literalDigits()) {
+    SCOPED_TRACE(digit);
+    ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+    ASSERT_TRUE(controller->handleKey(digitKey(digit)));
+    EXPECT_EQ(ui->committedString, "你" + std::string(1, digit));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
+}
+
+TEST_P(KeyboardLayoutTest, TopRowDigitsDoNotDependOnNumberPadEntries) {
+  constexpr char model[] = R"(
+# format org.openvanilla.mcbopomofo.sorted
+_numpad_1 １ 10.0
+ㄋㄧ 你 -1.0
+ㄋㄧˇ 你 -1.0
+ㄋㄧˇ-1 changed 10.0
+)";
+  lm->loadLanguageModel(
+      std::make_unique<ParselessPhraseDB>(model, sizeof(model)));
+  for (char digit : literalDigits()) {
+    SCOPED_TRACE(digit);
+    ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+    ASSERT_TRUE(controller->handleKey(digitKey(digit)));
+    EXPECT_EQ(ui->committedString, "你" + std::string(1, digit));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
+}
+
+TEST_F(ShiftLetterTest, LiteralDigitsIgnoreUserPhrasesAndConverters) {
+  constexpr char userPhrases[] = "１ 1\n";
+  constexpr char excludedPhrases[] = "1 1\n";
+  lm->loadUserPhrases(userPhrases, sizeof(userPhrases));
+  lm->loadExcludedPhrases(excludedPhrases, sizeof(excludedPhrases));
+  lm->setExternalConverter([](const std::string&) { return "changed"; });
+  lm->setExternalConverterEnabled(true);
+  for (char digit = '0'; digit <= '9'; ++digit) {
+    SCOPED_TRACE(digit);
+    const std::string literal(1, digit);
+    ASSERT_TRUE(lm->hasUnigrams(literal));
+    const auto unigrams = lm->getUnigrams(literal);
+    ASSERT_EQ(unigrams.size(), 1u);
+    EXPECT_EQ(unigrams[0].value(), literal);
+  }
+  EXPECT_TRUE(lm->hasUnigrams(" "));
+  ASSERT_EQ(lm->getUnigrams(" ").size(), 1u);
+  EXPECT_EQ(lm->getUnigrams(" ")[0].value(), " ");
+  EXPECT_FALSE(lm->hasUnigrams("01"));
+  EXPECT_TRUE(lm->getUnigrams("01").empty());
+}
+
+TEST_P(KeyboardLayoutTest, TopRowDigitsCommitInPlainBopomofoMode) {
+  controller->setInputMode(InputMode::PlainBopomofo);
+  for (char digit : literalDigits()) {
+    SCOPED_TRACE(digit);
+    ASSERT_TRUE(controller->handleKey(digitKey(digit)));
+    EXPECT_EQ(ui->committedString, std::string(1, digit));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+    EXPECT_TRUE(ui->lastState.candidates.empty());
+  }
+}
+
+TEST_P(KeyboardLayoutTest, ShiftedDigitStillOutputsPunctuation) {
+  IPC::KeyEventPayload payload{};
+  payload.vk = '1';
+  payload.ascii = '!';
+  payload.shift = true;
+  ASSERT_TRUE(controller->handleKey(mapIpcKey(payload)));
+  EXPECT_EQ(ui->committedString, "！");
+  EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+}
+
+TEST_P(KeyboardLayoutTest, TopRowDigitsIgnoreRepeatedPunctuationSetting) {
+  controller->setRepeatedPunctuationToSelectCandidateEnabled(true);
+  for (char digit : literalDigits()) {
+    SCOPED_TRACE(digit);
+    ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+    ASSERT_TRUE(controller->handleKey(digitKey(digit)));
+    EXPECT_EQ(ui->committedString, "你" + std::string(1, digit));
+    EXPECT_TRUE(ui->lastState.composingBuffer.empty());
+  }
+}
+
+TEST_P(KeyboardLayoutTest, TopRowDigitsInsideChineseKeepComposition) {
+  for (char digit : literalDigits()) {
+    SCOPED_TRACE(digit);
+    ui->committedString.clear();
+    ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+    ASSERT_TRUE(controller->handleKey(Key::namedKey(Key::KeyName::LEFT)));
+    ASSERT_TRUE(controller->handleKey(digitKey(digit)));
+    EXPECT_TRUE(ui->committedString.empty());
+    EXPECT_EQ(ui->lastState.composingBuffer, std::string(1, digit) + "你");
+    EXPECT_EQ(ui->lastState.cursorIndex, 1);
+    ASSERT_TRUE(controller->handleKey(Key::asciiKey(Key::RETURN)));
+    EXPECT_EQ(ui->committedString, std::string(1, digit) + "你");
+  }
+}
+
+TEST_P(KeyboardLayoutTest, MappedDigitsStillEnterPhoneticReadings) {
+  for (char digit = '0'; digit <= '9'; ++digit) {
+    if (literalDigits().find(digit) != std::string::npos) {
+      continue;
+    }
+    SCOPED_TRACE(digit);
+    ASSERT_TRUE(controller->handleKey(digitKey(digit)));
+    EXPECT_TRUE(ui->committedString.empty());
+    EXPECT_FALSE(ui->lastState.composingBuffer.empty());
+    EXPECT_EQ(ui->lastState.composingBuffer.find(digit), std::string::npos);
+    ASSERT_TRUE(controller->handleKey(Key::asciiKey(Key::ESC)));
+  }
+}
+
+TEST_P(KeyboardLayoutTest, CandidateDigitsStillSelectChinese) {
+  ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+  ASSERT_TRUE(controller->handleKey(Key::namedKey(Key::KeyName::DOWN)));
+  ASSERT_FALSE(ui->lastState.candidates.empty());
+  ASSERT_TRUE(controller->handleKey(digitKey('1')));
+  EXPECT_TRUE(ui->committedString.empty());
+  EXPECT_EQ(ui->lastState.composingBuffer, "你");
+  EXPECT_TRUE(ui->lastState.candidates.empty());
+  ASSERT_TRUE(controller->handleKey(Key::asciiKey(Key::RETURN)));
+  EXPECT_EQ(ui->committedString, "你");
+}
+
+TEST_P(KeyboardLayoutTest, NumberPadDigitsKeepExistingCompositionBehavior) {
+  for (char digit = '0'; digit <= '9'; ++digit) {
+    SCOPED_TRACE(digit);
+    ui->committedString.clear();
+    ASSERT_NO_FATAL_FAILURE(composeChineseForLayout());
+    ASSERT_TRUE(controller->handleKey(digitKey(digit, true)));
+    EXPECT_TRUE(ui->committedString.empty());
+    EXPECT_EQ(ui->lastState.composingBuffer, "你" + std::string(1, digit));
+    ASSERT_TRUE(controller->handleKey(Key::asciiKey(Key::RETURN)));
+    EXPECT_EQ(ui->committedString, "你" + std::string(1, digit));
+  }
+}
+
+TEST_F(ShiftLetterTest, TopRowDigitDoesNotCommitUnfinishedHsuReading) {
+  controller->setKeyboardLayout(
+      Formosa::Mandarin::BopomofoKeyboardLayout::HsuLayout());
+  ASSERT_TRUE(controller->handleKey(Key::asciiKey('b')));
+  ASSERT_EQ(ui->lastState.composingBuffer, "ㄅ");
+  for (char digit = '0'; digit <= '9'; ++digit) {
+    SCOPED_TRACE(digit);
+    EXPECT_TRUE(controller->handleKey(Key::asciiKey(digit)));
+    EXPECT_TRUE(ui->committedString.empty());
+    EXPECT_EQ(ui->lastState.composingBuffer, "ㄅ");
+  }
+}
 INSTANTIATE_TEST_SUITE_P(
-    AllLayouts, ShiftLetterLayoutTest,
+    AllLayouts, KeyboardLayoutTest,
     ::testing::Values(
         Formosa::Mandarin::BopomofoKeyboardLayout::StandardLayout(),
         Formosa::Mandarin::BopomofoKeyboardLayout::ETenLayout(),
